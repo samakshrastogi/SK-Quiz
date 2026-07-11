@@ -1,15 +1,9 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import type { UserRole } from "@ai-quiz-coach/shared";
 import { env } from "../config/env.js";
-import { AuthActivityModel, ProfileModel, UserModel } from "../models/core.model.js";
+import { ProfileModel, UserModel } from "../models/core.model.js";
 import { forbidden, unauthorized } from "../utils/app-error.js";
-
-interface AccessTokenPayload {
-  sub: string;
-  role: UserRole;
-}
 
 interface CentralTokenPayload {
   iss: "sk-central";
@@ -22,9 +16,6 @@ interface CentralTokenPayload {
   sid: string;
   exp: number;
 }
-
-const INACTIVITY_TTL_MS = 48 * 60 * 60 * 1000;
-const RETURN_LOGIN_TTL_MS = 60 * 60 * 1000;
 
 const verifyCentralToken = (token: string) => {
   const [header, body, signature] = token.split(".");
@@ -60,33 +51,11 @@ const syncCentralUser = async (payload: CentralTokenPayload) => {
   return user;
 };
 
-const authenticateLocalJwt = async (token: string) => {
-  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;
-  const user = await UserModel.findById(payload.sub).select("_id email role lastActivityAt");
-  if (!user) throw unauthorized("Account no longer exists. Please sign in again.");
-  const lastActivityAt = user.lastActivityAt?.getTime() ?? 0;
-  if (Date.now() - lastActivityAt > INACTIVITY_TTL_MS) throw unauthorized("Session expired after 48 hours of inactivity");
-  if (lastActivityAt > 0 && Date.now() - lastActivityAt > RETURN_LOGIN_TTL_MS) {
-    await AuthActivityModel.create({
-      userId: user._id,
-      email: user.email,
-      event: "return_login",
-      provider: "email",
-      metadata: { inactiveMs: Date.now() - lastActivityAt }
-    });
-  }
-  user.lastActivityAt = new Date();
-  await user.save();
-  return { id: String(user._id), role: user.role as UserRole };
-};
-
 const authenticateToken = async (token: string) => {
   const centralPayload = verifyCentralToken(token);
-  if (centralPayload) {
-    const user = await syncCentralUser(centralPayload);
-    return { id: String(user._id), role: user.role as UserRole };
-  }
-  return authenticateLocalJwt(token);
+  if (!centralPayload) throw unauthorized("Invalid or expired SK Central token");
+  const user = await syncCentralUser(centralPayload);
+  return { id: String(user._id), role: user.role as UserRole };
 };
 
 export const requireAuth = async (req: Request, _res: Response, next: NextFunction) => {

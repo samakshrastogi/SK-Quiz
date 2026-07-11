@@ -8,7 +8,6 @@ export const UserModel = mongoose.model(
     {
       email: { type: String, required: true, unique: true, lowercase: true, trim: true },
       passwordHash: { type: String },
-      googleId: { type: String, index: true },
       skCentralUserId: { type: String, unique: true, sparse: true, index: true },
       role: { type: String, enum: ["student", "admin", "super_admin"], default: "student" },
       emailVerifiedAt: { type: Date },
@@ -41,8 +40,8 @@ export const AuthActivityModel = mongoose.model(
     {
       userId: { type: Schema.Types.ObjectId, ref: "User", index: true },
       email: { type: String, lowercase: true, trim: true, index: true },
-      event: { type: String, enum: ["register_started", "email_verified", "login", "google_login", "return_login", "logout", "password_reset"], required: true, index: true },
-      provider: { type: String, enum: ["email", "google"], default: "email" },
+      event: { type: String, enum: ["sk_central_login", "return_login", "logout"], required: true, index: true },
+      provider: { type: String, enum: ["sk-central"], default: "sk-central" },
       metadata: Schema.Types.Mixed
     },
     timestamps

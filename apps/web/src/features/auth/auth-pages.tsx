@@ -31,4 +31,3 @@ export const LoginPage = () => {
 
 export const RegisterPage = LoginPage;
 export const ForgotPasswordPage = LoginPage;
-export const GoogleCallbackPage = LoginPage;

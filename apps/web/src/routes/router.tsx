@@ -5,7 +5,7 @@ import { QuizPage } from "../features/quiz/quiz-page";
 import { AnalyticsPage } from "../features/analytics/analytics-page";
 import { MentorPage } from "../features/mentor/mentor-page";
 import { PlannerPage } from "../features/planner/planner-page";
-import { ForgotPasswordPage, GoogleCallbackPage, LoginPage, RegisterPage } from "../features/auth/auth-pages";
+import { ForgotPasswordPage, LoginPage, RegisterPage } from "../features/auth/auth-pages";
 import { ProfilePage } from "../features/profile/profile-page";
 import { LandingPage } from "../features/landing/landing-page";
 
@@ -23,7 +23,6 @@ const plannerRoute = createRoute({ getParentRoute: () => rootRoute, path: "/plan
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: LoginPage });
 const registerRoute = createRoute({ getParentRoute: () => rootRoute, path: "/register", component: RegisterPage });
 const forgotPasswordRoute = createRoute({ getParentRoute: () => rootRoute, path: "/forgot-password", component: ForgotPasswordPage });
-const googleCallbackRoute = createRoute({ getParentRoute: () => rootRoute, path: "/auth/google/callback", component: GoogleCallbackPage });
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
@@ -36,8 +35,7 @@ export const router = createRouter({
     plannerRoute,
     loginRoute,
     registerRoute,
-    forgotPasswordRoute,
-    googleCallbackRoute
+    forgotPasswordRoute
   ])
 });
 

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { authRoutes } from "./auth.routes.js";
 import { onboardingRoutes } from "./onboarding.routes.js";
 import { quizRoutes } from "./quiz.routes.js";
 import { adminRoutes } from "./admin.routes.js";
@@ -12,7 +11,6 @@ apiRoutes.get("/health", (_req, res) => {
   res.json({ data: { status: "ok" }, requestId: res.getHeader("x-request-id") });
 });
 
-apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/onboarding", onboardingRoutes);
 apiRoutes.use("/quizzes", quizRoutes);
 apiRoutes.use("/admin", adminRoutes);

@@ -126,7 +126,7 @@ export const getAdminAnalytics: RequestHandler = async (_req, res, next) => {
 
     for (const activity of activities as LeanAuthActivity[]) {
       const day = ensureDay(dateKey(activity.createdAt));
-      if (activity.event === "login" || activity.event === "google_login" || activity.event === "return_login" || activity.event === "email_verified") {
+      if (activity.event === "sk_central_login" || activity.event === "return_login") {
         day.logins += 1;
         const userId = activity.userId ? String(activity.userId) : "";
         const name = userId ? userNameById.get(userId) : userNameByEmail.get(activity.email ?? "");
@@ -137,7 +137,6 @@ export const getAdminAnalytics: RequestHandler = async (_req, res, next) => {
           loginMatrixMap.set(name, row);
         }
       }
-      if (activity.event === "register_started" || activity.event === "google_login") day.signups += 1;
       providerMap.set(activity.provider ?? "email", (providerMap.get(activity.provider ?? "email") ?? 0) + 1);
     }
 

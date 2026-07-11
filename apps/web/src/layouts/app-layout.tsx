@@ -30,7 +30,7 @@ interface ProfileSummary {
 }
 
 const examKey = (exam: { id?: string; examName: string }) => exam.id ?? exam.examName.trim().toLowerCase();
-const publicPaths = new Set(["/", "/login", "/register", "/forgot-password", "/auth/google/callback"]);
+const publicPaths = new Set(["/", "/login", "/register", "/forgot-password"]);
 
 const normalizeLayoutState = (value: LayoutState): LayoutState => {
   const discovered = [...(value.discoveredExams ?? [])];
@@ -175,7 +175,7 @@ export const AppLayout = () => {
   }, []);
 
   useEffect(() => {
-    const isAuthRoute = ["/login", "/register", "/forgot-password", "/auth/google/callback"].includes(location.pathname);
+    const isAuthRoute = ["/login", "/register", "/forgot-password"].includes(location.pathname);
 
     if (!accessToken && !isPublicRoute) {
       void requestCentralAppToken().catch(() => redirectToCentralLogin());
