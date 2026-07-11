@@ -5,10 +5,11 @@ import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
+const apiRoot = resolve(currentDir, "../..");
+const nodeEnv = process.env["NODE_ENV"] === "production" ? "production" : "development";
 const envCandidates = [
-  resolve(process.cwd(), ".env"),
-  resolve(currentDir, "../../../../.env"),
-  resolve(currentDir, "../../.env")
+  resolve(apiRoot, nodeEnv === "production" ? ".env.production" : ".env.local"),
+  resolve(apiRoot, ".env")
 ];
 
 const envPath = envCandidates.find((candidate) => existsSync(candidate));

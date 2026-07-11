@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: sk-quiz-api
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build --workspace=@ai-quiz-coach/shared && npm run build --workspace=@ai-quiz-coach/api
+    startCommand: npm run start --workspace=@ai-quiz-coach/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SK_CENTRAL_SERVICE_TOKEN
+        sync: false
+      - key: SK_CENTRAL_AUTH_URL
+        sync: false
+      - key: SK_CENTRAL_LOGIN_URL
+        sync: false
+      - key: SK_CENTRAL_SSO_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: PASSWORD_RESET_URL
+        sync: false
+      - key: VERIFY_EMAIL_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
