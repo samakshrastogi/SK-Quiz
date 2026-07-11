@@ -1,0 +1,17 @@
+FROM node:22-slim AS base
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY tsconfig.base.json ./
+
+RUN npm ci
+RUN npm run build --workspace=@ai-quiz-coach/shared
+RUN npm run build --workspace=@ai-quiz-coach/api
+RUN npm prune --omit=dev
+
+EXPOSE 8080
+CMD ["npm", "run", "start", "--workspace=@ai-quiz-coach/api"]
