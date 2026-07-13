@@ -6,6 +6,7 @@ export const connectDatabase = async () => {
   mongoose.set("bufferCommands", false);
   try {
     await mongoose.connect(env.MONGODB_URI, {
+      dbName: env.MONGODB_DB_NAME,
       autoIndex: env.NODE_ENV !== "production",
       serverSelectionTimeoutMS: 10_000
     });

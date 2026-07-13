@@ -22,6 +22,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4001),
   WEB_ORIGIN: z.string().url().default("http://localhost:5474"),
   MONGODB_URI: z.string().min(1),
+  MONGODB_DB_NAME: z.string().default("quiz"),
   REDIS_URL: z.string().min(1),
   RESEND_API_KEY: optionalEnv,
   MAIL_FROM: optionalEnv,
