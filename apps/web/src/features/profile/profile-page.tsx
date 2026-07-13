@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -35,7 +35,7 @@ import {
   Trash2,
   TrendingUp
 } from "lucide-react";
-import { APP_STATE_UPDATED_EVENT, apiClient } from "../../api/client";
+import { APP_STATE_UPDATED_EVENT, apiClient, isApiNetworkCoolingDown } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { useAuthStore } from "../../store/auth-store";
@@ -221,10 +221,13 @@ export const DashboardPage = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const loadInFlightRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      if (loadInFlightRef.current || isApiNetworkCoolingDown()) return;
+      loadInFlightRef.current = true;
       try {
         const [profileResponse, stateResponse] = await Promise.all([
           apiClient.get<{ data: ProfileAnalytics }>("/profile/analytics"),
@@ -235,14 +238,15 @@ export const DashboardPage = () => {
           setLayoutState(stateResponse.data.data ?? {});
           setError("");
         }
-      } catch {
-        if (mounted) setError("Profile analytics could not be loaded. Please refresh after signing in.");
+      } catch (requestError) {
+        if (mounted && (requestError as { response?: unknown })?.response) setError("Profile analytics could not be loaded. Please refresh after signing in.");
       } finally {
+        loadInFlightRef.current = false;
         if (mounted) setIsLoading(false);
       }
     };
     void load();
-    const interval = window.setInterval(() => void load(), 30_000);
+    const interval = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 120_000);
     return () => {
       mounted = false;
       window.clearInterval(interval);
@@ -690,5 +694,7 @@ const DetailsPanel = ({ title, children }: { title: string; children: ReactNode 
 const EmptyState = ({ text }: { text: string }) => (
   <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-6 text-center text-sm font-semibold text-slate-500">{text}</div>
 );
+
+
 
 

@@ -8,6 +8,17 @@ const centralAuthBaseUrl = import.meta.env["VITE_SK_CENTRAL_AUTH_URL"] ?? "http:
 const centralLoginUrl = import.meta.env["VITE_SK_CENTRAL_LOGIN_URL"] ?? "http://localhost:5475/login";
 export const centralProfileUrl = import.meta.env["VITE_SK_CENTRAL_PROFILE_URL"] ?? centralLoginUrl.replace(/\/login\/?$/, "/profile");
 
+let appTokenPromise: Promise<string> | null = null;
+let apiNetworkCooldownUntil = 0;
+const networkCooldownMs = 20_000;
+
+const isNetworkError = (error: unknown) => axios.isAxiosError(error) && !error.response && !axios.isCancel(error);
+const startNetworkCooldown = () => {
+  apiNetworkCooldownUntil = Date.now() + networkCooldownMs;
+};
+
+export const isApiNetworkCoolingDown = () => Date.now() < apiNetworkCooldownUntil;
+
 export const redirectToCentralLogin = (mode?: "login" | "register") => {
   const returnTo = encodeURIComponent(window.location.href);
   const modeQuery = mode === "register" ? "&mode=register" : "";
@@ -19,16 +30,24 @@ const notifyAuthExpired = () => {
 };
 
 export const requestCentralAppToken = async () => {
-  const response = await axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin"; avatarUrl?: string; avatarInitials?: string } } }>(
+  if (appTokenPromise) return appTokenPromise;
+  appTokenPromise = axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin"; avatarUrl?: string; avatarInitials?: string } } }>(
     `${centralAuthBaseUrl}/auth/app-token?appId=sk-quiz`,
     { withCredentials: true }
-  );
-  useAuthStore.getState().setSession({
-    accessToken: response.data.data.token,
-    refreshToken: "",
-    user: response.data.data.user
+  ).then((response) => {
+    useAuthStore.getState().setSession({
+      accessToken: response.data.data.token,
+      refreshToken: "",
+      user: response.data.data.user
+    });
+    return response.data.data.token;
+  }).catch((error) => {
+    if (isNetworkError(error)) startNetworkCooldown();
+    throw error;
+  }).finally(() => {
+    appTokenPromise = null;
   });
-  return response.data.data.token;
+  return appTokenPromise;
 };
 
 export const apiClient = axios.create({
@@ -38,6 +57,10 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  const method = config.method?.toLowerCase() ?? "get";
+  if (method === "get" && isApiNetworkCoolingDown()) {
+    return Promise.reject(new axios.CanceledError("API network cooldown active"));
+  }
   let token = useAuthStore.getState().accessToken;
   if (!token) {
     try {
@@ -58,6 +81,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
+    if (isNetworkError(error)) startNetworkCooldown();
     const status = error?.response?.status;
     const originalRequest = error?.config as { _retry?: boolean; url?: string } | undefined;
     if (status === 401 && originalRequest && !originalRequest._retry) {
@@ -74,5 +98,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 

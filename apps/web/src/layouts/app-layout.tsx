@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { BookOpenCheck, CalendarClock, Check, ChevronDown, Code2, GraduationCap, MessageSquareText, Sparkles, UserCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
+import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, isApiNetworkCoolingDown, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
 import { useAuthStore } from "../store/auth-store";
 
 const navItems = [
@@ -97,6 +97,8 @@ export const AppLayout = () => {
   const activeStartedAtRef = useRef<number | null>(null);
   const examMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const layoutLoadInFlightRef = useRef(false);
+  const profileLoadInFlightRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuthStore((auth) => auth.accessToken);
@@ -111,6 +113,8 @@ export const AppLayout = () => {
   const visibleNavItems = navItems;
 
   const loadLayoutState = useCallback(async (mounted = true) => {
+    if (layoutLoadInFlightRef.current || isApiNetworkCoolingDown()) return;
+    layoutLoadInFlightRef.current = true;
     try {
       const response = await apiClient.get<{ data: LayoutState }>("/onboarding/state");
       const normalized = normalizeLayoutState(response.data.data);
@@ -118,17 +122,23 @@ export const AppLayout = () => {
       if (JSON.stringify(normalized) !== JSON.stringify(response.data.data)) {
         await apiClient.put("/onboarding/state", { state: normalized });
       }
-    } catch {
-      if (mounted) setState({});
+    } catch (error) {
+      if (mounted && (error as { response?: unknown })?.response) setState({});
+    } finally {
+      layoutLoadInFlightRef.current = false;
     }
   }, []);
 
   const loadProfile = useCallback(async (mounted = true) => {
+    if (profileLoadInFlightRef.current || isApiNetworkCoolingDown()) return;
+    profileLoadInFlightRef.current = true;
     try {
       const response = await apiClient.get<{ data: { user?: ProfileSummary } }>("/profile/analytics");
       if (mounted) setProfile(response.data.data.user ?? {});
-    } catch {
-      if (mounted) setProfile({});
+    } catch (error) {
+      if (mounted && (error as { response?: unknown })?.response) setProfile({});
+    } finally {
+      profileLoadInFlightRef.current = false;
     }
   }, []);
 
@@ -154,7 +164,7 @@ export const AppLayout = () => {
     const onStateUpdated = refreshData;
     window.addEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
     window.addEventListener("focus", verifyCentralSession);
-    const interval = window.setInterval(refreshData, 60_000);
+    const interval = window.setInterval(refreshData, 120_000);
     return () => {
       mounted = false;
       window.removeEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
@@ -512,6 +522,8 @@ const DeveloperCredit = () => (
     </button>
   </div>
 );
+
+
 
 
 
