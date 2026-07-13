@@ -212,7 +212,7 @@ const palette = ["#0f766e", "#2563eb", "#f97316", "#7c3aed", "#e11d48", "#0891b2
 const emptyTrend: TrendPoint[] = [{ label: "No data", value: 0 }];
 const examKey = (exam: { id?: string; examName: string }) => exam.id ?? exam.examName.trim().toLowerCase();
 
-export const ProfilePage = () => {
+export const DashboardPage = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
@@ -249,14 +249,6 @@ export const ProfilePage = () => {
     };
   }, []);
 
-  const logout = async () => {
-    try {
-      await apiClient.post("/auth/logout");
-    } finally {
-      clearSession();
-      await navigate({ to: "/login" });
-    }
-  };
 
   const deleteExam = async (exam: { id?: string; examName: string }) => {
     const key = examKey(exam);
@@ -309,8 +301,8 @@ export const ProfilePage = () => {
               {analytics.user.avatarUrl ? <img src={analytics.user.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : avatarInitials}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wide text-brand">Smart Profile</p>
-            <h1 className="truncate text-lg font-black sm:text-xl">SK Quiz Coach Account</h1>
+              <p className="text-xs font-black uppercase tracking-wide text-brand">Smart Dashboard</p>
+            <h1 className="truncate text-lg font-black sm:text-xl">SK Quiz Coach Dashboard</h1>
               <p className="truncate text-sm text-slate-500">{analytics.user.name || analytics.user.email} / {analytics.overview.activeExam}</p>
             </div>
           </div>
@@ -336,13 +328,9 @@ export const ProfilePage = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-brand">Account settings</p>
-                <h2 className="text-xl font-black">{analytics.user.name || "SK Quiz Coach Account"}</h2>
+                <h2 className="text-xl font-black">{analytics.user.name || "SK Quiz Coach Dashboard"}</h2>
                 <p className="text-sm font-semibold text-slate-500">{analytics.user.email}</p>
               </div>
-              <Button variant="secondary" onClick={() => void logout()}>
-                <LogOut className="size-4" aria-hidden />
-                Logout
-              </Button>
             </div>
             <div className="mt-4 rounded-md border border-slate-200 p-3">
               <div className="flex items-center justify-between gap-3">
@@ -702,3 +690,5 @@ const DetailsPanel = ({ title, children }: { title: string; children: ReactNode 
 const EmptyState = ({ text }: { text: string }) => (
   <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-6 text-center text-sm font-semibold text-slate-500">{text}</div>
 );
+
+

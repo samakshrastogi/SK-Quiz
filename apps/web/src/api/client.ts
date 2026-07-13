@@ -6,6 +6,7 @@ export const APP_STATE_UPDATED_EVENT = "sk-quiz-app-state-updated";
 
 const centralAuthBaseUrl = import.meta.env["VITE_SK_CENTRAL_AUTH_URL"] ?? "http://localhost:4002/api";
 const centralLoginUrl = import.meta.env["VITE_SK_CENTRAL_LOGIN_URL"] ?? "http://localhost:5475/login";
+export const centralProfileUrl = import.meta.env["VITE_SK_CENTRAL_PROFILE_URL"] ?? centralLoginUrl.replace(/\/login\/?$/, "/profile");
 
 export const redirectToCentralLogin = (mode?: "login" | "register") => {
   const returnTo = encodeURIComponent(window.location.href);
@@ -73,3 +74,5 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+

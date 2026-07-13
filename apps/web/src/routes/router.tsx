@@ -6,7 +6,7 @@ import { AnalyticsPage } from "../features/analytics/analytics-page";
 import { MentorPage } from "../features/mentor/mentor-page";
 import { PlannerPage } from "../features/planner/planner-page";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "../features/auth/auth-pages";
-import { ProfilePage } from "../features/profile/profile-page";
+import { DashboardPage } from "../features/profile/profile-page";
 import { LandingPage } from "../features/landing/landing-page";
 
 const rootRoute = createRootRoute({
@@ -14,7 +14,7 @@ const rootRoute = createRootRoute({
 });
 
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage });
-const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/profile", component: ProfilePage });
+const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/profile", component: DashboardPage });
 const onboardingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/onboarding", component: OnboardingPage });
 const quizRoute = createRoute({ getParentRoute: () => rootRoute, path: "/quiz", component: QuizPage });
 const analyticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/analytics", component: AnalyticsPage });
@@ -44,3 +44,4 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+

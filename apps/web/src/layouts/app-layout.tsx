@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { BookOpenCheck, CalendarClock, Check, ChevronDown, Code2, GraduationCap, MessageSquareText, Sparkles, UserCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
+import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
 import { useAuthStore } from "../store/auth-store";
 
 const navItems = [
@@ -10,7 +10,7 @@ const navItems = [
   { to: "/planner", label: "Planner", icon: CalendarClock },
   { to: "/quiz", label: "Quiz", icon: BookOpenCheck },
   { to: "/mentor", label: "Mentor", icon: MessageSquareText },
-  { to: "/profile", label: "Profile", icon: UserCircle }
+  { to: "/profile", label: "Dashboard", icon: UserCircle }
 ];
 
 interface LayoutState {
@@ -93,9 +93,10 @@ export const AppLayout = () => {
   const [profile, setProfile] = useState<ProfileSummary>({});
   const [examMenuOpen, setExamMenuOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [routeRefreshKey, setRouteRefreshKey] = useState(0);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const activeStartedAtRef = useRef<number | null>(null);
   const examMenuRef = useRef<HTMLDivElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuthStore((auth) => auth.accessToken);
@@ -134,29 +135,33 @@ export const AppLayout = () => {
   useEffect(() => {
     if (!accessToken || isPublicRoute) return;
     let mounted = true;
-    const refreshLayout = () => {
-      void requestCentralAppToken().catch(() => undefined).finally(() => {
-        void loadLayoutState(mounted);
-        void loadProfile(mounted);
-      });
+
+    const refreshData = () => {
+      void loadLayoutState(mounted);
+      void loadProfile(mounted);
     };
-    refreshLayout();
-    const onStateUpdated = () => {
-      refreshLayout();
-      if (location.pathname !== "/onboarding") {
-        setRouteRefreshKey((key) => key + 1);
-      }
+
+    const verifyCentralSession = () => {
+      void requestCentralAppToken()
+        .then(refreshData)
+        .catch(() => {
+          clearSession();
+          redirectToCentralLogin();
+        });
     };
+
+    refreshData();
+    const onStateUpdated = refreshData;
     window.addEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
-    window.addEventListener("focus", refreshLayout);
-    const interval = window.setInterval(refreshLayout, 30_000);
+    window.addEventListener("focus", verifyCentralSession);
+    const interval = window.setInterval(refreshData, 60_000);
     return () => {
       mounted = false;
       window.removeEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
-      window.removeEventListener("focus", refreshLayout);
+      window.removeEventListener("focus", verifyCentralSession);
       window.clearInterval(interval);
     };
-  }, [accessToken, isPublicRoute, loadLayoutState, loadProfile, location.pathname]);
+  }, [accessToken, clearSession, isPublicRoute, loadLayoutState, loadProfile]);
 
   useEffect(() => {
     if (!accessToken || isPublicRoute || !profile.email) return;
@@ -206,6 +211,16 @@ export const AppLayout = () => {
     window.addEventListener("mousedown", closeOnOutsideClick);
     return () => window.removeEventListener("mousedown", closeOnOutsideClick);
   }, [examMenuOpen]);
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", closeOnOutsideClick);
+    return () => window.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     if (!accessToken || isPublicRoute) return;
@@ -263,7 +278,7 @@ export const AppLayout = () => {
     const onPageHide = () => flushUsage(true);
 
     syncActiveState();
-    const interval = window.setInterval(() => flushUsage(false), 15_000);
+    const interval = window.setInterval(() => { if (navigator.onLine) flushUsage(false); }, 60_000);
     window.addEventListener("focus", syncActiveState);
     window.addEventListener("blur", syncActiveState);
     document.addEventListener("visibilitychange", syncActiveState);
@@ -298,7 +313,7 @@ export const AppLayout = () => {
   const updateActiveExam = async (nextExamId: string) => {
     setExamMenuOpen(false);
     await saveLayoutState({ ...state, activeExamId: nextExamId });
-    setRouteRefreshKey((key) => key + 1);
+
   };
 
   return (
@@ -357,29 +372,52 @@ export const AppLayout = () => {
                 )}
               </div>
             )}
-            <Link
-              to="/profile"
-              className="flex size-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white text-sm font-black text-brand shadow-soft transition hover:bg-slate-50"
-              aria-label="Open profile"
-            >
-              {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                initials
+            <div ref={profileMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((current) => !current)}
+                className="flex size-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white text-sm font-black text-brand shadow-soft transition hover:bg-slate-50"
+                aria-label="Open account menu"
+                aria-expanded={profileMenuOpen}
+              >
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  initials
+                )}
+              </button>
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-14 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand/10 text-sm font-black text-brand">
+                      {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-ink">{profile.name || "SK Quiz learner"}</span>
+                      <span className="block truncate text-xs font-bold text-slate-500">{profile.email || "Signed in with SK Auth"}</span>
+                    </span>
+                  </div>
+                  <a
+                    href={centralProfileUrl}
+                    className="mt-3 flex w-full items-center justify-center rounded-xl bg-ink px-3 py-2 text-sm font-black text-white transition hover:bg-brand"
+                  >
+                    Manage your SK account
+                  </a>
+                </div>
               )}
-            </Link>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="px-4 pb-28 pt-6 sm:px-6 lg:px-8">
-        <motion.div key={routeRefreshKey} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           <Outlet />
         </motion.div>
       </main>
     </div>
 
-        <nav className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-slate-200 bg-white/92 p-2 shadow-soft backdrop-blur">
+        <nav className="fixed bottom-4 left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/92 p-2 shadow-soft backdrop-blur sm:gap-2">
       {visibleNavItems.map((item) => {
         const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
         return (
@@ -474,3 +512,6 @@ const DeveloperCredit = () => (
     </button>
   </div>
 );
+
+
+
