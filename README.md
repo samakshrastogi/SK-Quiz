@@ -295,7 +295,64 @@ flowchart LR
 | Email | SMTP mailbox, optional API email provider |
 | Deployment | Cloud Run API, Vercel/Firebase frontend, managed database, managed cache |
 
+## Local Setup
+
+### Prerequisites
+
+Ensure you have the following installed on your machine:
+- **Node.js**: v22.x (LTS recommended)
+- **npm**: v10.x or newer
+- **Docker Desktop**: Required to orchestrate database and cache services.
+
+### Environment Configuration
+
+1. **Backend Configuration**:
+   Copy the backend example env file to create your local env file:
+   ```bash
+   cp apps/api/.env.example apps/api/.env.local
+   ```
+   Fill in the required keys, especially:
+   - `GEMINI_API_KEY`: Your Google Gemini API Key for adaptive question generation.
+   - `MONGODB_URI`: Defaults to `mongodb://127.0.0.1:27018/sk-quiz-coach` (mapped via Docker).
+   - `REDIS_URL`: Defaults to `redis://127.0.0.1:6380` (mapped via Docker).
+
+2. **Frontend Configuration**:
+   Copy the frontend example env file to create your local env file:
+   ```bash
+   cp apps/web/.env.example apps/web/.env.local
+   ```
+   - `VITE_API_URL`: Defaults to `http://localhost:4001/api` (points to local backend port).
+
+### Running Locally
+
+To boot up the complete full-stack environment with a single command:
+
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Start the local stack**:
+   ```bash
+   npm run dev
+   ```
+
+The dev launcher script (`scripts/dev.mjs`) automatically:
+- Launches Docker Desktop (if on Windows) and starts the MongoDB and Redis containers via Docker Compose.
+- Health-checks the database and cache ports.
+- Spawns the REST & WebSocket backend Express API on `http://localhost:4001` (hot-reloads with `tsx watch`).
+- Builds and runs the frontend Vite app preview server on `http://localhost:5474`.
+
+### Development Tasks
+
+- **Format Code**: `npm run format`
+- **Lint Code**: `npm run lint`
+- **Typecheck**: `npm run typecheck`
+- **Run Tests**: `npm run test`
+- **Build Services**: `npm run build`
+
 ## Deployment
+
 
 ### Purpose
 
