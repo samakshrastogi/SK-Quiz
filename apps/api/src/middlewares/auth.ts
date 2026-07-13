@@ -13,8 +13,6 @@ interface CentralTokenPayload {
   name: string;
   role: UserRole;
   permissions?: string[];
-  avatarUrl?: string;
-  avatarInitials?: string;
   sid: string;
   exp: number;
 }
@@ -32,9 +30,7 @@ const verifyCentralToken = (token: string) => {
 const syncCentralUser = async (payload: CentralTokenPayload) => {
   const displayName = payload.name || payload.email.split("@")[0] || "Student";
   const profilePatch = {
-    name: displayName,
-    avatarUrl: payload.avatarUrl ?? "",
-    avatarInitials: payload.avatarInitials ?? ""
+    name: displayName
   };
   let user = await UserModel.findOne({ skCentralUserId: payload.sub }).select("_id email role lastActivityAt skCentralUserId");
   user = user ?? await UserModel.findOne({ email: payload.email.toLowerCase() }).select("_id email role lastActivityAt skCentralUserId");
@@ -100,3 +96,4 @@ export const requireRole =
     if (!roles.includes(req.user.role)) return next(forbidden());
     return next();
   };
+
