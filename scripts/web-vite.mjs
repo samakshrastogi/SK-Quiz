@@ -13,7 +13,7 @@ const config = {
   configFile: false,
   plugins: [react(), tailwindcss()],
   build: {
-    outDir: resolve(projectRoot, "dist"),
+    outDir: resolve(webRoot, "dist"),
     emptyOutDir: true
   },
   server: {
