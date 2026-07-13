@@ -5,7 +5,8 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
-import { env, isProduction } from "./config/env.js";
+import { isProduction } from "./config/env.js";
+import { corsOptions } from "./config/cors.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { requestContext } from "./middlewares/request-context.js";
 import { apiRoutes } from "./routes/index.js";
@@ -15,12 +16,7 @@ export const createApp = () => {
 
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(
-    cors({
-      origin: env.WEB_ORIGIN,
-      credentials: true
-    })
-  );
+  app.use(cors(corsOptions));
   app.use(compression());
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
