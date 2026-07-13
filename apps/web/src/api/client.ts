@@ -52,7 +52,7 @@ export const requestCentralAppToken = async () => {
 
 export const apiClient = axios.create({
   baseURL: import.meta.env["VITE_API_URL"] ?? "http://localhost:4001/api",
-  withCredentials: true,
+  withCredentials: false,
   timeout: 120_000
 });
 
@@ -94,6 +94,7 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 
 
