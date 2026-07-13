@@ -95,6 +95,7 @@ export const AppLayout = () => {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const activeStartedAtRef = useRef<number | null>(null);
+  const usagePostInFlightRef = useRef(false);
   const examMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const layoutLoadInFlightRef = useRef(false);
@@ -255,6 +256,7 @@ export const AppLayout = () => {
       const durationSeconds = Math.floor((Date.now() - startedAt) / 1000);
       activeStartedAtRef.current = isActive() ? Date.now() : null;
       if (durationSeconds < 1) return;
+      if (!useKeepalive && (usagePostInFlightRef.current || isApiNetworkCoolingDown())) return;
 
       const payload = JSON.stringify({
         durationSeconds,
@@ -275,20 +277,21 @@ export const AppLayout = () => {
         return;
       }
 
-      void apiClient.post("/profile/usage", JSON.parse(payload)).catch(() => undefined);
+      usagePostInFlightRef.current = true;
+      void apiClient.post("/profile/usage", JSON.parse(payload)).catch(() => undefined).finally(() => { usagePostInFlightRef.current = false; });
     };
 
     const syncActiveState = () => {
       if (isActive()) {
         activeStartedAtRef.current = activeStartedAtRef.current ?? Date.now();
       } else {
-        flushUsage(true);
+        flushUsage(false);
       }
     };
     const onPageHide = () => flushUsage(true);
 
     syncActiveState();
-    const interval = window.setInterval(() => { if (navigator.onLine) flushUsage(false); }, 60_000);
+    const interval = window.setInterval(() => { if (navigator.onLine && document.visibilityState === "visible") flushUsage(false); }, 120_000);
     window.addEventListener("focus", syncActiveState);
     window.addEventListener("blur", syncActiveState);
     document.addEventListener("visibilitychange", syncActiveState);
@@ -420,14 +423,14 @@ export const AppLayout = () => {
         </div>
       </header>
 
-      <main className="px-4 pb-28 pt-6 sm:px-6 lg:px-8">
+      <main className="px-4 pb-32 pt-6 sm:px-6 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           <Outlet />
         </motion.div>
       </main>
     </div>
 
-        <nav className="fixed bottom-4 left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/92 p-2 shadow-soft backdrop-blur sm:gap-2">
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 overflow-x-auto rounded-t-2xl border border-slate-200 bg-white/95 p-2 shadow-soft backdrop-blur sm:bottom-4 sm:left-1/2 sm:right-auto sm:w-auto sm:max-w-[calc(100vw-1rem)] sm:-translate-x-1/2 sm:justify-center sm:rounded-2xl sm:bg-white/92 sm:gap-2">
       {visibleNavItems.map((item) => {
         const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
         return (
@@ -522,6 +525,9 @@ const DeveloperCredit = () => (
     </button>
   </div>
 );
+
+
+
 
 
 

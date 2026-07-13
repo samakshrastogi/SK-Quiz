@@ -57,10 +57,6 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
-  const method = config.method?.toLowerCase() ?? "get";
-  if (method === "get" && isApiNetworkCoolingDown()) {
-    return Promise.reject(new axios.CanceledError("API network cooldown active"));
-  }
   let token = useAuthStore.getState().accessToken;
   if (!token) {
     try {
@@ -98,6 +94,7 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 
 
