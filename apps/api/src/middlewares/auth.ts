@@ -13,6 +13,8 @@ interface CentralTokenPayload {
   name: string;
   role: UserRole;
   permissions?: string[];
+  avatarUrl?: string;
+  avatarInitials?: string;
   sid: string;
   exp: number;
 }
@@ -28,6 +30,12 @@ const verifyCentralToken = (token: string) => {
 };
 
 const syncCentralUser = async (payload: CentralTokenPayload) => {
+  const displayName = payload.name || payload.email.split("@")[0] || "Student";
+  const profilePatch = {
+    name: displayName,
+    avatarUrl: payload.avatarUrl ?? "",
+    avatarInitials: payload.avatarInitials ?? ""
+  };
   let user = await UserModel.findOne({ skCentralUserId: payload.sub }).select("_id email role lastActivityAt skCentralUserId");
   user = user ?? await UserModel.findOne({ email: payload.email.toLowerCase() }).select("_id email role lastActivityAt skCentralUserId");
   if (!user) {
@@ -39,18 +47,17 @@ const syncCentralUser = async (payload: CentralTokenPayload) => {
       lastLoginAt: new Date(),
       lastActivityAt: new Date()
     });
-    await ProfileModel.create({ userId: user._id, name: payload.name || payload.email.split("@")[0] || "Student" });
+    await ProfileModel.create({ userId: user._id, ...profilePatch });
   } else {
     user.skCentralUserId = payload.sub;
     user.email = payload.email.toLowerCase();
     user.role = payload.role ?? user.role;
     user.lastActivityAt = new Date();
     await user.save();
-    await ProfileModel.updateOne({ userId: user._id }, { $setOnInsert: { name: payload.name || payload.email.split("@")[0] || "Student" } }, { upsert: true });
+    await ProfileModel.updateOne({ userId: user._id }, { $set: profilePatch }, { upsert: true });
   }
   return user;
 };
-
 const authenticateToken = async (token: string) => {
   const centralPayload = verifyCentralToken(token);
   if (!centralPayload) throw unauthorized("Invalid or expired SK Central token");

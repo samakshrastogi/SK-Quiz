@@ -269,6 +269,7 @@ export const getProfileAnalytics: RequestHandler = async (req, res, next) => {
         email: user?.email ?? "",
         role: user?.role ?? "student",
         avatarUrl: profile?.avatarUrl ?? "",
+        avatarInitials: profile?.avatarInitials ?? "",
         lastLoginAt: user?.lastLoginAt,
         lastActivityAt: user?.lastActivityAt
       },

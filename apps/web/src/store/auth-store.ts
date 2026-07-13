@@ -9,8 +9,10 @@ interface AuthState {
   user?: {
     id: string;
     role: UserRole;
+    avatarUrl?: string;
+    avatarInitials?: string;
   };
-  setSession: (session: { accessToken: string; refreshToken: string; user: { id: string; role: UserRole } }) => void;
+  setSession: (session: { accessToken: string; refreshToken: string; user: { id: string; role: UserRole; avatarUrl?: string; avatarInitials?: string } }) => void;
   touchActivity: () => void;
   clearSession: () => void;
 }

@@ -33,8 +33,7 @@ import {
   ShieldCheck,
   Target,
   Trash2,
-  TrendingUp,
-  UserCircle
+  TrendingUp
 } from "lucide-react";
 import { APP_STATE_UPDATED_EVENT, apiClient } from "../../api/client";
 import { Button } from "../../components/ui/button";
@@ -77,7 +76,7 @@ interface TopicRow {
 }
 
 interface ProfileAnalytics {
-  user: { name?: string; email: string; role: string };
+  user: { name?: string; email: string; role: string; avatarUrl?: string; avatarInitials?: string };
   exam: {
     readinessScore: number;
     overallProgress: number;
@@ -299,14 +298,15 @@ export const ProfilePage = () => {
   }
 
   const primaryInsight = analytics.aiInsights.personalizedDailySuggestions[0] ?? analytics.smartInsights[0] ?? "Create a plan to unlock personalized guidance.";
+  const avatarInitials = analytics.user.avatarInitials || (analytics.user.name || analytics.user.email || "Student").split(/[._\-\s@]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "SR";
 
   return (
-    <div className="space-y-3 pb-20 xl:pb-0">
+    <div className="space-y-3 pb-28">
       <Card className="p-3 sm:p-4">
         <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-ink text-white sm:size-10">
-              <UserCircle className="size-5 sm:size-6" aria-hidden />
+            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink text-sm font-black text-white sm:size-10">
+              {analytics.user.avatarUrl ? <img src={analytics.user.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : avatarInitials}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-brand">Smart Profile</p>

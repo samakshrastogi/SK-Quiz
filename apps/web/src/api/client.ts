@@ -18,14 +18,14 @@ const notifyAuthExpired = () => {
 };
 
 export const requestCentralAppToken = async () => {
-  const response = await axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin" } } }>(
+  const response = await axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin"; avatarUrl?: string; avatarInitials?: string } } }>(
     `${centralAuthBaseUrl}/auth/app-token?appId=sk-quiz`,
     { withCredentials: true }
   );
   useAuthStore.getState().setSession({
     accessToken: response.data.data.token,
     refreshToken: "",
-    user: { id: response.data.data.user.id, role: response.data.data.user.role }
+    user: response.data.data.user
   });
   return response.data.data.token;
 };

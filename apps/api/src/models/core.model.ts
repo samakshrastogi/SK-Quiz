@@ -55,6 +55,7 @@ export const ProfileModel = mongoose.model(
       userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
       name: { type: String, required: true },
       avatarUrl: String,
+      avatarInitials: String,
       targetExamId: { type: Schema.Types.ObjectId, ref: "TargetExam" },
       targetYear: Number,
       preferredLanguage: { type: String, default: "English" },

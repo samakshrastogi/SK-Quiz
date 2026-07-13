@@ -27,6 +27,7 @@ interface ProfileSummary {
   email?: string;
   role?: string;
   avatarUrl?: string;
+  avatarInitials?: string;
 }
 
 const examKey = (exam: { id?: string; examName: string }) => exam.id ?? exam.examName.trim().toLowerCase();
@@ -81,6 +82,7 @@ const examInitials = (name: string) => {
 };
 
 const userInitials = (profile: ProfileSummary) => {
+  if (profile.avatarInitials) return profile.avatarInitials;
   const source = profile.name || profile.email || "Student";
   const parts = source.includes("@") ? source.split("@")[0]?.split(/[._\-\s]+/) ?? [] : source.split(/\s+/);
   return parts.filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "U";
@@ -106,7 +108,6 @@ export const AppLayout = () => {
   const initials = userInitials(profile);
   const tutorialKey = `sk-quiz-tutorial-seen-${profile.email || "student"}`;
   const visibleNavItems = navItems;
-  const mobileNavItems = visibleNavItems.slice(0, 5);
 
   const loadLayoutState = useCallback(async (mounted = true) => {
     try {
@@ -133,12 +134,13 @@ export const AppLayout = () => {
   useEffect(() => {
     if (!accessToken || isPublicRoute) return;
     let mounted = true;
-    void loadLayoutState(mounted);
-    void loadProfile(mounted);
     const refreshLayout = () => {
-      void loadLayoutState(mounted);
-      void loadProfile(mounted);
+      void requestCentralAppToken().catch(() => undefined).finally(() => {
+        void loadLayoutState(mounted);
+        void loadProfile(mounted);
+      });
     };
+    refreshLayout();
     const onStateUpdated = () => {
       refreshLayout();
       if (location.pathname !== "/onboarding") {
@@ -301,46 +303,8 @@ export const AppLayout = () => {
 
   return (
   <div className="min-h-screen bg-page text-ink">
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-slate-200 bg-white/90 px-4 py-5 backdrop-blur xl:flex">
-      <div className="flex items-center gap-3 px-2">
-        <div className="flex size-10 items-center justify-center rounded-md bg-ink text-sm font-black text-white">
-          SK
-        </div>
-        <div>
-          <p className="text-sm font-bold">SK Quiz Coach</p>
-          <p className="text-xs text-slate-500">Adaptive exam prep</p>
-        </div>
-      </div>
-      <nav className="mt-8 flex-1 space-y-1">
-        {visibleNavItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-ink [&.active]:bg-ink [&.active]:text-white"
-          >
-            <item.icon className="size-4" aria-hidden />
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="border-t border-slate-200 pt-6">
-        <Link to="/profile" className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-3 text-ink shadow-soft transition hover:border-brand/30 hover:bg-brand/5">
-          <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand/10 text-sm font-black text-brand">
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              initials
-            )}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-black uppercase tracking-wide">{profile.name || "Student"}</span>
-            <span className="block truncate text-xs font-semibold text-slate-500">{profile.email || "Signed in"}</span>
-          </span>
-        </Link>
-      </div>
-    </aside>
 
-    <div className="xl:pl-72">
+    <div>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <Link to="/profile" className="flex min-w-0 items-center gap-3">
@@ -408,20 +372,28 @@ export const AppLayout = () => {
         </div>
       </header>
 
-      <main className="px-4 py-6 sm:px-6 lg:px-8">
+      <main className="px-4 pb-28 pt-6 sm:px-6 lg:px-8">
         <motion.div key={routeRefreshKey} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           <Outlet />
         </motion.div>
       </main>
     </div>
 
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white xl:hidden">
-      {mobileNavItems.map((item) => (
-        <Link key={item.to} to={item.to} className="flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-slate-600 [&.active]:text-ink">
-          <item.icon className="size-5" aria-hidden />
-          {item.label}
-        </Link>
-      ))}
+        <nav className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-slate-200 bg-white/92 p-2 shadow-soft backdrop-blur">
+      {visibleNavItems.map((item) => {
+        const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`flex h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${isActive ? "min-w-[8.5rem] bg-ink text-white shadow-soft" : "w-12 text-slate-500 hover:bg-slate-100 hover:text-ink"}`}
+            aria-label={item.label}
+          >
+            <item.icon className="size-5 shrink-0" aria-hidden />
+            <span className={isActive ? "inline truncate" : "sr-only"}>{item.label}</span>
+          </Link>
+        );
+      })}
     </nav>
     {tutorialOpen && <TutorialModal state={normalizedState} onClose={closeTutorial} onNavigate={(to) => { closeTutorial(); void navigate({ to }); }} />}
     <DeveloperCredit />
@@ -490,7 +462,7 @@ const TutorialModal = ({ onClose, onNavigate, state }: { onClose: () => void; on
 };
 
 const DeveloperCredit = () => (
-  <div className="group fixed bottom-20 right-4 z-50 flex items-center gap-2 xl:bottom-5">
+  <div className="group fixed bottom-24 right-4 z-50 flex items-center gap-2">
     <div className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-0 py-2 text-sm font-semibold text-slate-600 opacity-0 shadow-soft transition-all duration-300 group-hover:pointer-events-auto group-hover:max-w-[280px] group-hover:px-3 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:max-w-[280px] group-focus-within:px-3 group-focus-within:opacity-100">
       Developed by{" "}
       <a className="font-black text-brand underline-offset-4 hover:underline" href="https://www.linkedin.com/in/samaksh-rastogi-9638b9254/" target="_blank" rel="noreferrer">
