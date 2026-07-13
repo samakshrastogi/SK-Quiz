@@ -2,8 +2,6 @@
 
 SK Quiz Coach is an adaptive exam preparation platform designed for students preparing for competitive exams. It helps learners select target exams, understand their structure, prioritize syllabus subjects, generate a realistic dated study plan based on available time, schedule quizzes, attempt exam-pattern questions, and track overall readiness.
 
----
-
 ## Overview
 
 | Area                | Product Details                                                                                     |
@@ -15,7 +13,6 @@ SK Quiz Coach is an adaptive exam preparation platform designed for students pre
 | **Personalization** | Tailored recommendations based on study pacing, section priorities, and topic accuracy              |
 | **Key Portals**     | Student Workspace, Parent/Mentor View, Admin Dashboard                                              |
 
----
 
 ## Table of Contents
 
@@ -29,8 +26,6 @@ SK Quiz Coach is an adaptive exam preparation platform designed for students pre
 8. [Admin Flow](#admin-flow)
 9. [Authentication Flow](#authentication-flow)
 10. [Key Features](#key-features)
-
----
 
 ## User Roles
 
@@ -50,8 +45,6 @@ flowchart TD
   Student --> Planner["Study Planner Calendar"]
   Auth --> Admin["Admin Dashboard"]
 ```
-
----
 
 ## Student Flow
 
@@ -73,8 +66,6 @@ flowchart TD
   TakeQuiz --> ReviewProgress["Review Analytics & Readiness Score"]
 ```
 
----
-
 ## Exam Selection Flow
 
 ### Purpose
@@ -91,8 +82,6 @@ flowchart LR
   ActiveSelect --> UpdateMetrics["Update Readiness Score & Charts"]
   ActiveSelect --> UpdateMentor["Tailor Learning Recommendations"]
 ```
-
----
 
 ## Study Planner Flow
 
@@ -112,8 +101,6 @@ flowchart TD
   ActivePlan --> IncompleteTasks["Reschedule / Carry-Forward Unfinished Work"]
 ```
 
----
-
 ## Quiz Flow
 
 ### Purpose
@@ -131,8 +118,6 @@ flowchart TD
   SubmitAnswer --> ReportCard["Review Score, Accuracy & Correct Explanations"]
   ReportCard --> UpdateStats["Update Profile Analytics & History Logs"]
 ```
-
----
 
 ## Mentor Flow
 
@@ -153,8 +138,6 @@ flowchart TD
   Process -->|API Error| Fallback["Trigger Fallback Action Step (Based on Weak Topic/Next Task)"]
 ```
 
----
-
 ## Profile and Analytics Flow
 
 ### Purpose
@@ -170,8 +153,6 @@ flowchart LR
   FetchMetrics --> DrawGraphs["Render Speed & Accuracy Trend Charts"]
   FetchMetrics --> ShowHistory["List Past Quiz Attempt Details"]
 ```
-
----
 
 ## Admin Flow
 
@@ -189,8 +170,6 @@ flowchart TD
   LoadConsole --> ProgressTracking["Review Study Completion & Quiz Success Rates"]
   LoadConsole --> RenderConsole["Display Consolidated Metric Charts & Data Tables"]
 ```
-
----
 
 ## Authentication Flow
 
@@ -210,8 +189,6 @@ flowchart TD
   CheckIdle -->|Idle| Terminate["Automatic Logout"]
   CheckIdle -->|Active| ActiveSession
 ```
-
----
 
 ## Key Features
 
