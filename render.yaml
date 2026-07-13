@@ -3,7 +3,7 @@ services:
     name: sk-quiz-api
     runtime: node
     plan: starter
-    buildCommand: npm ci && npm run build --workspace=@ai-quiz-coach/shared && npm run build --workspace=@ai-quiz-coach/api
+    buildCommand: npm ci --include=dev && npm run build --workspace=@ai-quiz-coach/shared && npm run build --workspace=@ai-quiz-coach/api
     startCommand: npm run start --workspace=@ai-quiz-coach/api
     envVars:
       - key: NODE_ENV
