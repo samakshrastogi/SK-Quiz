@@ -15,10 +15,9 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@ai-quiz-coach/shared": ["packages/shared/src/index.ts"],
-      "@ai-quiz-coach/shared/*": ["packages/shared/src/*"]
+      "@ai-quiz-coach/shared": ["./packages/shared/src/index.ts"],
+      "@ai-quiz-coach/shared/*": ["./packages/shared/src/*"]
     }
   }
 }
