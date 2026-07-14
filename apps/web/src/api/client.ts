@@ -50,6 +50,19 @@ export const requestCentralAppToken = async () => {
   return appTokenPromise;
 };
 
+export const getCentralSessionState = async (): Promise<boolean | null> => {
+  try {
+    const response = await axios.get<{ data?: { authenticated?: boolean } }>(`${centralAuthBaseUrl}/auth/me`, {
+      withCredentials: true,
+      headers: { Accept: "application/json" }
+    });
+    return response.data.data?.authenticated === true;
+  } catch (error) {
+    if (axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) return false;
+    return null;
+  }
+};
+
 export const apiClient = axios.create({
   baseURL: import.meta.env["VITE_API_URL"] ?? "http://localhost:4001/api",
   withCredentials: false,

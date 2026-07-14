@@ -17,15 +17,54 @@ interface CentralTokenPayload {
   exp: number;
 }
 
-const verifyCentralToken = (token: string) => {
-  const [header, body, signature] = token.split(".");
-  if (!header || !body || !signature) return null;
-  const expected = crypto.createHmac("sha256", env.SK_CENTRAL_SSO_SECRET).update(`${header}.${body}`).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-  const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as CentralTokenPayload;
-  if (payload.iss !== "sk-central" || payload.aud !== "sk-quiz" || payload.exp <= Math.floor(Date.now() / 1000)) return null;
-  return payload;
+const isUsableCentralPayload = (payload: CentralTokenPayload | null | undefined) =>
+  Boolean(
+    payload
+      && payload.iss === "sk-central"
+      && payload.aud === "sk-quiz"
+      && payload.sub
+      && payload.email
+      && payload.exp > Math.floor(Date.now() / 1000)
+  );
+
+const verifyCentralTokenLocally = (token: string): CentralTokenPayload | null => {
+  try {
+    const [header, body, signature] = token.split(".");
+    if (!header || !body || !signature) return null;
+    const expected = crypto.createHmac("sha256", env.SK_CENTRAL_SSO_SECRET).update(`${header}.${body}`).digest("base64url");
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as CentralTokenPayload;
+    return isUsableCentralPayload(payload) ? payload : null;
+  } catch {
+    return null;
+  }
 };
+
+const verifyCentralTokenRemotely = async (token: string): Promise<CentralTokenPayload | null> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(`${env.SK_CENTRAL_AUTH_URL.replace(/\/$/, "")}/auth/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, appId: "sk-quiz" }),
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const result = await response.json() as { data?: { valid?: boolean; payload?: CentralTokenPayload } };
+    const payload = result.data?.payload;
+    return result.data?.valid && isUsableCentralPayload(payload) ? payload ?? null : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const verifyCentralToken = async (token: string) =>
+  verifyCentralTokenLocally(token) ?? await verifyCentralTokenRemotely(token);
 
 const syncCentralUser = async (payload: CentralTokenPayload) => {
   const displayName = payload.name || payload.email.split("@")[0] || "Student";
@@ -55,7 +94,7 @@ const syncCentralUser = async (payload: CentralTokenPayload) => {
   return user;
 };
 const authenticateToken = async (token: string) => {
-  const centralPayload = verifyCentralToken(token);
+  const centralPayload = await verifyCentralToken(token);
   if (!centralPayload) throw unauthorized("Invalid or expired SK Central token");
   const user = await syncCentralUser(centralPayload);
   return { id: String(user._id), role: user.role as UserRole };

@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { BookOpenCheck, CalendarClock, Check, ChevronDown, Code2, GraduationCap, MessageSquareText, Sparkles, UserCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, isApiNetworkCoolingDown, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
+import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, getCentralSessionState, isApiNetworkCoolingDown, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
 import { useAuthStore } from "../store/auth-store";
 
 const navItems = [
@@ -152,24 +152,41 @@ export const AppLayout = () => {
       void loadProfile(mounted);
     };
 
-    const verifyCentralSession = () => {
-      void requestCentralAppToken()
-        .then(refreshData)
-        .catch(() => {
-          clearSession();
-          redirectToCentralLogin();
-        });
+    let checkInFlight = false;
+    const verifyCentralSession = async () => {
+      if (checkInFlight) return;
+      checkInFlight = true;
+      const active = await getCentralSessionState();
+      checkInFlight = false;
+      if (active === false) {
+        clearSession();
+        redirectToCentralLogin();
+        return;
+      }
+      if (active === true) {
+        try {
+          await requestCentralAppToken();
+          refreshData();
+        } catch {
+          // A temporary token request failure must not create a redirect loop.
+        }
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void verifyCentralSession();
     };
 
-    refreshData();
+    void verifyCentralSession();
     const onStateUpdated = refreshData;
     window.addEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
     window.addEventListener("focus", verifyCentralSession);
-    const interval = window.setInterval(refreshData, 120_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const interval = window.setInterval(verifyCentralSession, 30_000);
     return () => {
       mounted = false;
       window.removeEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
       window.removeEventListener("focus", verifyCentralSession);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(interval);
     };
   }, [accessToken, clearSession, isPublicRoute, loadLayoutState, loadProfile]);
