@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { AnalyticsModel, AuthActivityModel, OnboardingStateModel, ProfileModel, UserModel } from "../models/core.model.js";
+import { AnalyticsModel, AuthActivityModel, OnboardingStateModel, ProfileModel, QuestionAttemptModel, QuestionBankModel, QuizSessionModel, SubjectModel, UserModel } from "../models/core.model.js";
 
 const examKey = (exam: { id?: string; examName: string }) => exam.id ?? exam.examName.trim().toLowerCase();
 
@@ -74,6 +74,7 @@ const summarizeState = (record: LeanOnboardingState) => {
     completedQuizCount: quizHistory.filter((quiz) => quiz.status === "Completed").length,
     plan,
     quizHistory,
+    priorityCount: Array.isArray(state["subjectPreferences"]) ? state["subjectPreferences"].length : 0,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
   };
@@ -81,12 +82,16 @@ const summarizeState = (record: LeanOnboardingState) => {
 
 export const getAdminAnalytics: RequestHandler = async (_req, res, next) => {
   try {
-    const [users, profiles, states, activities, usageRecords] = await Promise.all([
+    const [users, profiles, states, activities, usageRecords, quizSessions, questionAttempts, questions, subjects] = await Promise.all([
       UserModel.find().select("_id email role lastLoginAt lastActivityAt createdAt").sort({ createdAt: -1 }).limit(1000).lean(),
-      ProfileModel.find().select("userId name").limit(1000).lean(),
+      ProfileModel.find().select("userId name xp level streak").limit(1000).lean(),
       OnboardingStateModel.find().sort({ updatedAt: -1 }).limit(200).lean(),
       AuthActivityModel.find().sort({ createdAt: -1 }).limit(1000).lean(),
-      AnalyticsModel.find({ "metrics.type": "platform_usage" }).sort({ createdAt: -1 }).limit(10000).lean()
+      AnalyticsModel.find({ "metrics.type": "platform_usage" }).sort({ createdAt: -1 }).limit(10000).lean(),
+      QuizSessionModel.find().select("status userId createdAt completedAt").sort({ createdAt: -1 }).limit(10000).lean(),
+      QuestionAttemptModel.find().select("questionId isCorrect confidence timeTakenSeconds createdAt").sort({ createdAt: -1 }).limit(50000).lean(),
+      QuestionBankModel.find().select("question difficulty subjectId").limit(10000).lean(),
+      SubjectModel.find().select("name").limit(5000).lean()
     ]);
     const summarizedStates = (states as LeanOnboardingState[]).map(summarizeState);
     const authenticatedStates = summarizedStates.filter((state) => state.userId);
@@ -253,6 +258,79 @@ export const getAdminAnalytics: RequestHandler = async (_req, res, next) => {
     const planAdoptionRate = percent(summarizedStates.filter((state) => state.planCount > 0).length, summarizedStates.length);
     const quizCompletionRate = percent(completedQuizzes, totalQuizzes);
 
+    const funnelStages = [
+      { key: "registered", label: "Registered", count: users.length },
+      { key: "exam", label: "Chose an exam", count: summarizedStates.filter((state) => state.selectedExamNames.length > 0).length },
+      { key: "priorities", label: "Set priorities", count: summarizedStates.filter((state) => state.priorityCount > 0).length },
+      { key: "plan", label: "Generated a plan", count: summarizedStates.filter((state) => state.planCount > 0).length },
+      { key: "quiz", label: "Took first quiz", count: summarizedStates.filter((state) => state.quizCount > 0).length }
+    ].map((stage, index, stages) => ({ ...stage, conversionRate: percent(stage.count, index === 0 ? users.length : stages[index - 1]?.count ?? 0) }));
+
+    const gamificationProfiles = profiles as Array<{ xp?: number; level?: number; streak?: number }>;
+    const distribution = (values: number[], ranges: Array<{ label: string; min: number; max: number }>) => ranges.map((range) => ({ label: range.label, count: values.filter((value) => value >= range.min && value <= range.max).length }));
+    const gamification = {
+      averageXp: Math.round(average(gamificationProfiles.map((profile) => Number(profile.xp ?? 0)))),
+      averageLevel: round(average(gamificationProfiles.map((profile) => Number(profile.level ?? 1)))),
+      averageStreak: round(average(gamificationProfiles.map((profile) => Number(profile.streak ?? 0)))),
+      streakDistribution: distribution(gamificationProfiles.map((profile) => Number(profile.streak ?? 0)), [{ label: "0 days", min: 0, max: 0 }, { label: "1-3 days", min: 1, max: 3 }, { label: "4-7 days", min: 4, max: 7 }, { label: "8+ days", min: 8, max: Number.MAX_SAFE_INTEGER }]),
+      levelDistribution: distribution(gamificationProfiles.map((profile) => Number(profile.level ?? 1)), [{ label: "Level 1", min: 1, max: 1 }, { label: "Levels 2-5", min: 2, max: 5 }, { label: "Levels 6-10", min: 6, max: 10 }, { label: "Level 11+", min: 11, max: Number.MAX_SAFE_INTEGER }]),
+      xpDistribution: distribution(gamificationProfiles.map((profile) => Number(profile.xp ?? 0)), [{ label: "0 XP", min: 0, max: 0 }, { label: "1-499 XP", min: 1, max: 499 }, { label: "500-1,999 XP", min: 500, max: 1999 }, { label: "2,000+ XP", min: 2000, max: Number.MAX_SAFE_INTEGER }])
+    };
+
+    const stateByUserId = new Map(summarizedStates.filter((state) => state.userId).map((state) => [state.userId as string, state]));
+    const inactivity = {
+      signedUpNoPlan: users.filter((user) => !stateByUserId.get(String(user._id))?.planCount).length,
+      planButNoQuiz: users.filter((user) => { const state = stateByUserId.get(String(user._id)); return Boolean(state?.planCount && !state.quizCount); }).length,
+      inactive7d: users.filter((user) => !user.lastActivityAt || new Date(user.lastActivityAt).getTime() < active7Cutoff).length,
+      inactive30d: users.filter((user) => !user.lastActivityAt || new Date(user.lastActivityAt).getTime() < active30Cutoff).length
+    };
+
+    const today = dateKey(new Date());
+    const scheduledTasks = summarizedStates.flatMap((state) => state.plan).filter((task) => Boolean(task.date) && String(task.date) <= today);
+    const overdueTasks = scheduledTasks.filter((task) => !task.done);
+    const subjectUsageSeconds = new Map<string, number>();
+    for (const record of usageRecords as Array<LeanUsageRecord & { metrics?: LeanUsageRecord["metrics"] & { subject?: string; topic?: string } }>) {
+      const label = record.metrics?.subject?.trim() || record.metrics?.topic?.trim() || "Unattributed activity";
+      subjectUsageSeconds.set(label, (subjectUsageSeconds.get(label) ?? 0) + Math.max(0, Number(record.metrics?.durationSeconds ?? 0)));
+    }
+    const subjectTimeInvestment = [...new Set([...subjectMap.keys(), ...subjectUsageSeconds.keys()])].map((subject) => ({
+      subject,
+      plannedHours: round(subjectMap.get(subject)?.hours ?? 0),
+      actualHours: round((subjectUsageSeconds.get(subject) ?? 0) / 3600),
+      completionRate: percent(subjectMap.get(subject)?.completed ?? 0, subjectMap.get(subject)?.tasks ?? 0)
+    })).sort((a, b) => b.plannedHours - a.plannedHours).slice(0, 12);
+
+    const questionById = new Map((questions as Array<{ _id: unknown; question?: string; difficulty?: string; subjectId?: unknown }>).map((question) => [String(question._id), question]));
+    const subjectById = new Map((subjects as Array<{ _id: unknown; name?: string }>).map((subject) => [String(subject._id), subject.name ?? "General"]));
+    const attemptBuckets = new Map<string, { attempts: number; correct: number }>();
+    const confidenceBuckets = new Map<string, { attempts: number; correct: number }>();
+    for (const attempt of questionAttempts as Array<{ questionId?: unknown; isCorrect?: boolean; confidence?: string }>) {
+      const questionId = String(attempt.questionId ?? "");
+      const bucket = attemptBuckets.get(questionId) ?? { attempts: 0, correct: 0 };
+      bucket.attempts += 1; bucket.correct += attempt.isCorrect ? 1 : 0; attemptBuckets.set(questionId, bucket);
+      const confidence = attempt.confidence ?? "not_reported";
+      const confidenceBucket = confidenceBuckets.get(confidence) ?? { attempts: 0, correct: 0 };
+      confidenceBucket.attempts += 1; confidenceBucket.correct += attempt.isCorrect ? 1 : 0; confidenceBuckets.set(confidence, confidenceBucket);
+    }
+    const questionOutliers = [...attemptBuckets.entries()].flatMap(([questionId, bucket]) => {
+      const question = questionById.get(questionId); const accuracy = percent(bucket.correct, bucket.attempts);
+      const suspicious = (question?.difficulty === "easy" && accuracy < 30) || (question?.difficulty === "hard" && accuracy > 95);
+      return suspicious ? [{ questionId, question: question?.question?.slice(0, 120) ?? "Question", subject: question?.subjectId ? subjectById.get(String(question.subjectId)) ?? "General" : "General", difficulty: question?.difficulty ?? "unknown", attempts: bucket.attempts, accuracy, reason: question?.difficulty === "easy" ? "Easy question below 30% accuracy" : "Hard question above 95% accuracy" }] : [];
+    }).sort((a, b) => b.attempts - a.attempts).slice(0, 20);
+    const confidenceAccuracy = [...confidenceBuckets.entries()].map(([confidence, bucket]) => ({ confidence, attempts: bucket.attempts, accuracy: percent(bucket.correct, bucket.attempts) }));
+    const quizStatusCounts = (quizSessions as Array<{ status?: string }>).reduce<Record<string, number>>((counts, session) => { const status = session.status ?? "unknown"; counts[status] = (counts[status] ?? 0) + 1; return counts; }, {});
+    const quizSessionTotal = Object.values(quizStatusCounts).reduce((sum, count) => sum + count, 0);
+    const quizFunnel = { statuses: quizStatusCounts, total: quizSessionTotal, completionRate: percent(quizStatusCounts["completed"] ?? 0, quizSessionTotal), abandonmentRate: percent((quizStatusCounts["in_progress"] ?? 0) + (quizStatusCounts["cancelled"] ?? 0), quizSessionTotal) };
+    const learningIntelligence = {
+      onboardingFunnel: funnelStages,
+      gamification,
+      inactivity,
+      planCompliance: { scheduledTasks: scheduledTasks.length, completedTasks: scheduledTasks.length - overdueTasks.length, overdueTasks: overdueTasks.length, carryForwardRate: percent(overdueTasks.length, scheduledTasks.length) },
+      subjectTimeInvestment,
+      questionOutliers,
+      confidenceAccuracy,
+      quizFunnel
+    };
     const insights = [
       topExam ? `${topExam.exam} is the highest-demand exam with ${topExam.users} tracked user${topExam.users === 1 ? "" : "s"}.` : "No exam demand data yet.",
       `${activeUsers7d} user${activeUsers7d === 1 ? "" : "s"} were active in the last 7 days.`,
@@ -316,6 +394,7 @@ export const getAdminAnalytics: RequestHandler = async (_req, res, next) => {
           .sort((a, b) => b.tasks - a.tasks)
           .slice(0, 12),
         timeline,
+        learningIntelligence,
         insights,
         states: summarizedStates,
         authEvents: (activities as LeanAuthActivity[]).map((activity) => ({

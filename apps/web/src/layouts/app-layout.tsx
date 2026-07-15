@@ -95,6 +95,7 @@ export const AppLayout = () => {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const activeStartedAtRef = useRef<number | null>(null);
+  const [avatarFailedUrl, setAvatarFailedUrl] = useState("");
   const usagePostInFlightRef = useRef(false);
   const examMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -412,8 +413,8 @@ export const AppLayout = () => {
                 aria-label="Open account menu"
                 aria-expanded={profileMenuOpen}
               >
-                {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />
+                {displayProfile.avatarUrl && avatarFailedUrl !== displayProfile.avatarUrl ? (
+                  <img src={displayProfile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" onError={() => setAvatarFailedUrl(displayProfile.avatarUrl ?? "")} />
                 ) : (
                   initials
                 )}
@@ -422,7 +423,7 @@ export const AppLayout = () => {
                 <div className="absolute right-0 top-14 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft">
                   <div className="flex items-center gap-3">
                     <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand/10 text-sm font-black text-brand">
-                      {displayProfile.avatarUrl ? <img src={displayProfile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials}
+                      {displayProfile.avatarUrl && avatarFailedUrl !== displayProfile.avatarUrl ? <img src={displayProfile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" onError={() => setAvatarFailedUrl(displayProfile.avatarUrl ?? "")} /> : initials}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-black text-ink">{displayProfile.name || "SK Quiz learner"}</span>
@@ -531,24 +532,27 @@ const TutorialModal = ({ onClose, onNavigate, state }: { onClose: () => void; on
   );
 };
 
-const DeveloperCredit = () => (
-  <div className="group fixed bottom-24 right-4 z-50 flex items-center gap-2">
-    <div className="pointer-events-none max-w-0 overflow-hidden whitespace-nowrap rounded-md border border-slate-200 bg-white px-0 py-2 text-sm font-semibold text-slate-600 opacity-0 shadow-soft transition-all duration-300 group-hover:pointer-events-auto group-hover:max-w-[280px] group-hover:px-3 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:max-w-[280px] group-focus-within:px-3 group-focus-within:opacity-100">
-      Developed by{" "}
-      <a className="font-black text-brand underline-offset-4 hover:underline" href="https://www.linkedin.com/in/samaksh-rastogi-9638b9254/" target="_blank" rel="noreferrer">
-        Samaksh Rastogi
-      </a>
+const DeveloperCredit = () => {
+  const [open, setOpen] = useState(false);
+  const creditRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (open && !creditRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [open]);
+
+  return (
+    <div ref={creditRef} className="group fixed bottom-24 right-4 z-50 flex items-center gap-2">
+      <div className={`${open ? "pointer-events-auto max-w-[280px] px-3 opacity-100" : "pointer-events-none max-w-0 px-0 opacity-0 group-hover:pointer-events-auto group-hover:max-w-[280px] group-hover:px-3 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:max-w-[280px] group-focus-within:px-3 group-focus-within:opacity-100"} overflow-hidden whitespace-nowrap rounded-md border border-slate-200 bg-white py-2 text-sm font-semibold text-slate-600 shadow-soft transition-all duration-300`}>
+        Developed by{" "}
+        <a className="font-black text-emerald-600 underline decoration-2 underline-offset-4" href="https://www.linkedin.com/in/samaksh-rastogi-9638b9254/" target="_blank" rel="noreferrer">Samaksh Rastogi</a>
+      </div>
+      <button type="button" onClick={() => setOpen((current) => !current)} className="flex size-11 items-center justify-center rounded-full bg-ink text-white shadow-soft" aria-label={open ? "Hide developer credit" : "Show developer credit"} aria-expanded={open}>
+        <Code2 className="size-5" aria-hidden />
+      </button>
     </div>
-    <button type="button" className="flex size-11 items-center justify-center rounded-full bg-ink text-white shadow-soft" aria-label="Show developer credit">
-      <Code2 className="size-5" aria-hidden />
-    </button>
-  </div>
-);
-
-
-
-
-
-
-
-
+  );
+};
