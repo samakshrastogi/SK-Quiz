@@ -294,7 +294,10 @@ export const DashboardPage = () => {
   }
 
   const primaryInsight = analytics.aiInsights.personalizedDailySuggestions[0] ?? analytics.smartInsights[0] ?? "Create a plan to unlock personalized guidance.";
-  const avatarInitials = analytics.user.avatarInitials || (analytics.user.name || analytics.user.email || "Student").split(/[._\-\s@]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "SR";
+  const avatarName = user?.name || analytics.user.name || user?.email || analytics.user.email || "Student";
+  const avatarParts = avatarName.split(/[._\-\s@]+/).filter(Boolean);
+  const avatarInitials = `${avatarParts[0]?.[0] ?? "S"}${avatarParts.length > 1 ? avatarParts.at(-1)?.[0] ?? "" : avatarParts[0]?.[1] ?? ""}`.toUpperCase();
+  const avatarUrl = user?.avatarUrl || analytics.user.avatarUrl;
 
   return (
     <div className="space-y-3 pb-28">
@@ -302,7 +305,7 @@ export const DashboardPage = () => {
         <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink text-sm font-black text-white sm:size-10">
-              {analytics.user.avatarUrl ? <img src={analytics.user.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : avatarInitials}
+              {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : avatarInitials}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-brand">Smart Dashboard</p>

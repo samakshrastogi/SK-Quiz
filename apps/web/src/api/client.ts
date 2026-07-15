@@ -31,7 +31,7 @@ const notifyAuthExpired = () => {
 
 export const requestCentralAppToken = async () => {
   if (appTokenPromise) return appTokenPromise;
-  appTokenPromise = axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin"; avatarUrl?: string; avatarInitials?: string } } }>(
+  appTokenPromise = axios.get<{ data: { token: string; user: { id: string; role: "student" | "admin" | "super_admin"; name?: string; email?: string; avatarUrl?: string; avatarInitials?: string } } }>(
     `${centralAuthBaseUrl}/auth/app-token?appId=sk-quiz`,
     { withCredentials: true }
   ).then((response) => {

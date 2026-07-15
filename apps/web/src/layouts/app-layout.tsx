@@ -103,13 +103,15 @@ export const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuthStore((auth) => auth.accessToken);
+  const centralUser = useAuthStore((auth) => auth.user);
   const clearSession = useAuthStore((auth) => auth.clearSession);
   const isPublicRoute = publicPaths.has(location.pathname);
   const normalizedState = normalizeLayoutState(state);
   const trackedExams = normalizedState.discoveredExams ?? [];
   const activeExamId = normalizedState.activeExamId || (trackedExams[0] ? examKey(trackedExams[0]) : "");
   const activeExam = trackedExams.find((exam) => examKey(exam) === activeExamId);
-  const initials = userInitials(profile);
+  const displayProfile = { ...profile, name: centralUser?.name || profile.name, email: centralUser?.email || profile.email, avatarUrl: centralUser?.avatarUrl || profile.avatarUrl };
+  const initials = userInitials(displayProfile);
   const tutorialKey = `sk-quiz-tutorial-seen-${profile.email || "student"}`;
   const visibleNavItems = navItems;
 
@@ -420,11 +422,11 @@ export const AppLayout = () => {
                 <div className="absolute right-0 top-14 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft">
                   <div className="flex items-center gap-3">
                     <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand/10 text-sm font-black text-brand">
-                      {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials}
+                      {displayProfile.avatarUrl ? <img src={displayProfile.avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-black text-ink">{profile.name || "SK Quiz learner"}</span>
-                      <span className="block truncate text-xs font-bold text-slate-500">{profile.email || "Signed in with SK Auth"}</span>
+                      <span className="block truncate text-sm font-black text-ink">{displayProfile.name || "SK Quiz learner"}</span>
+                      <span className="block truncate text-xs font-bold text-slate-500">{displayProfile.email || "Signed in with SK Auth"}</span>
                     </span>
                   </div>
                   <a
