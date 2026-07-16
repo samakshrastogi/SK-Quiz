@@ -299,6 +299,35 @@ const getErrorMessage = (error: unknown) => {
   return error instanceof Error ? error.message : "Unable to discover this exam.";
 };
 
+const instantExamCatalog = [
+  "UPSC Civil Services Examination (CSE)",
+  "UPSC Engineering Services Examination (ESE)",
+  "UPSC Combined Defence Services (CDS)",
+  "UGC NET JRF (Junior Research Fellowship)",
+  "CSIR UGC NET JRF",
+  "SSC Combined Graduate Level (CGL)",
+  "SSC Combined Higher Secondary Level (CHSL)",
+  "IBPS Probationary Officer (PO)",
+  "IBPS Clerk",
+  "SBI Probationary Officer (PO)",
+  "RBI Grade B",
+  "NABARD Grade A",
+  "GATE Computer Science and Information Technology",
+  "GATE Mechanical Engineering",
+  "GATE Civil Engineering",
+  "CAT (Common Admission Test)",
+  "NEET UG",
+  "JEE Main",
+  "JEE Advanced",
+  "CLAT (Common Law Admission Test)"
+];
+
+const getInstantExamSuggestions = (query: string) => {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return instantExamCatalog
+    .filter((exam) => terms.every((term) => exam.toLowerCase().includes(term)))
+    .slice(0, 8);
+};
 export const OnboardingPage = () => {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState<StepId>("exam");
@@ -329,13 +358,17 @@ export const OnboardingPage = () => {
 
   useEffect(() => {
     const query = setup.examSearch.trim();
-    setExamSuggestions([]);
-    setSuggestionsOpen(false);
     suggestionsDismissedRef.current = false;
     if (query.length < 2 || query.includes(",")) {
+      setExamSuggestions([]);
+      setSuggestionsOpen(false);
       setIsLoadingSuggestions(false);
       return;
     }
+
+    const instantSuggestions = getInstantExamSuggestions(query);
+    setExamSuggestions(instantSuggestions);
+    setSuggestionsOpen(instantSuggestions.length > 0);
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
@@ -343,15 +376,15 @@ export const OnboardingPage = () => {
       void apiClient
         .get<{ data: string[] }>("/onboarding/suggestions", { params: { q: query }, signal: controller.signal })
         .then((response) => {
-          const nextSuggestions = response.data.data;
+          const nextSuggestions = [...new Set([...instantSuggestions, ...response.data.data])].slice(0, 8);
           setExamSuggestions(nextSuggestions);
           if (!suggestionsDismissedRef.current) setSuggestionsOpen(nextSuggestions.length > 0);
         })
         .catch((error: unknown) => {
-          if (!axios.isCancel(error)) setExamSuggestions([]);
+          if (!axios.isCancel(error)) setExamSuggestions(instantSuggestions);
         })
         .finally(() => setIsLoadingSuggestions(false));
-    }, 350);
+    }, 100);
 
     return () => {
       controller.abort();

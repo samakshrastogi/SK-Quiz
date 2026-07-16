@@ -179,6 +179,7 @@ export const AppLayout = () => {
       if (document.visibilityState === "visible") void verifyCentralSession();
     };
 
+    refreshData();
     void verifyCentralSession();
     const onStateUpdated = refreshData;
     window.addEventListener(APP_STATE_UPDATED_EVENT, onStateUpdated);
@@ -366,11 +367,11 @@ export const AppLayout = () => {
           </Link>
           <div className="flex min-w-0 items-center gap-2">
             {trackedExams.length > 0 && (
-              <div ref={examMenuRef} className="relative hidden md:block">
+              <div ref={examMenuRef} className="relative block">
                 <button
                   type="button"
                   onClick={() => setExamMenuOpen((current) => !current)}
-                  className="flex h-10 min-w-0 max-w-[420px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-left text-sm shadow-soft transition hover:border-brand/40"
+                  className="flex h-10 min-w-0 max-w-[min(420px,calc(100vw-7.5rem))] items-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-left text-sm shadow-soft transition hover:border-brand/40 sm:px-3"
                   aria-expanded={examMenuOpen}
                 >
                   <span className="flex size-6 shrink-0 items-center justify-center rounded bg-brand/10 text-brand">
@@ -381,7 +382,7 @@ export const AppLayout = () => {
                   <ChevronDown className="size-4 shrink-0 text-slate-500" aria-hidden />
                 </button>
                 {examMenuOpen && (
-                  <div className="absolute right-0 top-12 z-50 max-h-72 w-[420px] overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-soft">
+                  <div className="absolute right-0 top-12 z-50 max-h-72 w-[min(420px,calc(100vw-2rem))] overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-soft">
                     {trackedExams.map((exam) => {
                       const key = examKey(exam);
                       const isActive = key === activeExamId;
