@@ -17,7 +17,7 @@ import {
   Trash2
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../../api/client";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -311,11 +311,28 @@ export const OnboardingPage = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [examSuggestions, setExamSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const suggestionBoxRef = useRef<HTMLDivElement>(null);
+  const suggestionsDismissedRef = useRef(false);
   const selectedExams = useMemo(() => setup.discoveredExams.filter((exam) => setup.selectedExamIds.includes(examKey(exam))), [setup.discoveredExams, setup.selectedExamIds]);
+
+  useEffect(() => {
+    const closeSuggestions = (event: PointerEvent) => {
+      if (!suggestionBoxRef.current?.contains(event.target as Node)) {
+        suggestionsDismissedRef.current = true;
+        setSuggestionsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeSuggestions);
+    return () => document.removeEventListener("pointerdown", closeSuggestions);
+  }, []);
+
   useEffect(() => {
     const query = setup.examSearch.trim();
+    setExamSuggestions([]);
+    setSuggestionsOpen(false);
+    suggestionsDismissedRef.current = false;
     if (query.length < 2 || query.includes(",")) {
-      setExamSuggestions([]);
       setIsLoadingSuggestions(false);
       return;
     }
@@ -325,7 +342,11 @@ export const OnboardingPage = () => {
       setIsLoadingSuggestions(true);
       void apiClient
         .get<{ data: string[] }>("/onboarding/suggestions", { params: { q: query }, signal: controller.signal })
-        .then((response) => setExamSuggestions(response.data.data))
+        .then((response) => {
+          const nextSuggestions = response.data.data;
+          setExamSuggestions(nextSuggestions);
+          if (!suggestionsDismissedRef.current) setSuggestionsOpen(nextSuggestions.length > 0);
+        })
         .catch((error: unknown) => {
           if (!axios.isCancel(error)) setExamSuggestions([]);
         })
@@ -583,7 +604,7 @@ export const OnboardingPage = () => {
           </div>
           <Card className="space-y-3 p-3 sm:p-4">
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-              <div className="relative">
+              <div ref={suggestionBoxRef} className="relative">
                 <Input
                   value={setup.examSearch}
                   onChange={(event) => setSetup((current) => ({ ...current, examSearch: event.target.value }))}
@@ -591,16 +612,24 @@ export const OnboardingPage = () => {
                   autoComplete="off"
                   role="combobox"
                   aria-autocomplete="list"
-                  aria-expanded={examSuggestions.length > 0}
+                  aria-expanded={suggestionsOpen && examSuggestions.length > 0}
                   aria-controls="exam-suggestions"
+                  onFocus={() => {
+                    suggestionsDismissedRef.current = false;
+                    if (examSuggestions.length > 0) setSuggestionsOpen(true);
+                  }}
                   onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setSuggestionsOpen(false);
+                      return;
+                    }
                     if (event.key === "Enter") {
                       event.preventDefault();
                       void discoverExam();
                     }
                   }}
                 />
-                {(examSuggestions.length > 0 || isLoadingSuggestions) && (
+                {suggestionsOpen && (examSuggestions.length > 0 || isLoadingSuggestions) && (
                   <div id="exam-suggestions" role="listbox" className="absolute inset-x-0 top-[calc(100%+0.4rem)] z-30 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-soft">
                     {isLoadingSuggestions && examSuggestions.length === 0 ? (
                       <p className="px-3 py-2 text-sm font-semibold text-slate-500">Finding official exam names...</p>
@@ -614,6 +643,8 @@ export const OnboardingPage = () => {
                         onClick={() => {
                           setSetup((current) => ({ ...current, examSearch: suggestion }));
                           setExamSuggestions([]);
+                          suggestionsDismissedRef.current = true;
+                          setSuggestionsOpen(false);
                           setErrorMessage("");
                         }}
                       >

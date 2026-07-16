@@ -371,25 +371,35 @@ export class ContentProviderService {
 
   async suggestExams(query: string) {
     const normalized = query.trim().replace(/\s+/g, " ");
+    const queryTerms = normalized.toLowerCase().match(/[a-z0-9]+/g) ?? [];
     const curated = [
       "UPSC Civil Services Examination (CSE)", "UPSC Engineering Services Examination (ESE)", "UPSC Combined Defence Services (CDS)",
       "UPSC NDA and NA Examination", "SSC Combined Graduate Level (CGL)", "SSC Combined Higher Secondary Level (CHSL)",
+      "UGC NET Junior Research Fellowship (JRF)", "CSIR UGC NET Junior Research Fellowship (JRF)",
       "IBPS Probationary Officer (PO)", "SBI Probationary Officer (PO)", "RBI Grade B", "NABARD Grade A",
       "JEE Main", "JEE Advanced", "NEET UG", "GATE Computer Science", "CAT", "CLAT"
     ];
-    const fallback = curated
-      .map((name) => ({ name, score: name.toLowerCase().includes(normalized.toLowerCase()) ? 2 : name.toLowerCase().split(/\W+/).some((word) => normalized.toLowerCase().includes(word)) ? 1 : 0 }))
-      .filter((item) => item.score > 0)
-      .sort((left, right) => right.score - left.score)
-      .slice(0, 8)
-      .map((item) => item.name);
+    const rankMatches = (names: string[]) =>
+      Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
+        .map((name) => {
+          const candidate = name.toLowerCase();
+          const exactPhrase = candidate.includes(normalized.toLowerCase());
+          const matchedTerms = queryTerms.filter((term) => candidate.includes(term)).length;
+          const allTermsMatch = queryTerms.length > 0 && matchedTerms === queryTerms.length;
+          return { name, score: exactPhrase ? 3 : allTermsMatch ? 2 : 0 };
+        })
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name))
+        .slice(0, 8)
+        .map((item) => item.name);
+    const fallback = rankMatches(curated);
 
     if (normalized.length < 2) return fallback;
 
     try {
-      const result = await this.generateText(`Suggest up to 8 official competitive exam names matching the user's search: "${normalized}". Expand acronyms and distinguish variants. Return only JSON in this exact shape: {"suggestions":["Official exam name"]}. Do not include commentary.`);
+      const result = await this.generateText(`Suggest up to 8 official competitive exam names that directly match the user's search: "${normalized}". Every suggestion must contain the searched acronym, phrase, or all searched words; never return unrelated popular exams. Expand acronyms and distinguish variants. Return only JSON in this exact shape: {"suggestions":["Official exam name"]}. Do not include commentary.`);
       const parsed = z.object({ suggestions: z.array(z.string().min(2).max(140)).max(8) }).parse(parseProviderJson(result.text));
-      return Array.from(new Set([...parsed.suggestions.map((name) => name.trim()), ...fallback])).slice(0, 8);
+      return rankMatches([...parsed.suggestions, ...fallback]);
     } catch (error) {
       console.warn("Exam suggestions fell back to the curated catalog", error instanceof Error ? error.message : error);
       return fallback;
