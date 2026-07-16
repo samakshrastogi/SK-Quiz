@@ -309,7 +309,34 @@ export const OnboardingPage = () => {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isPlanEditing, setIsPlanEditing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [examSuggestions, setExamSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const selectedExams = useMemo(() => setup.discoveredExams.filter((exam) => setup.selectedExamIds.includes(examKey(exam))), [setup.discoveredExams, setup.selectedExamIds]);
+  useEffect(() => {
+    const query = setup.examSearch.trim();
+    if (query.length < 2 || query.includes(",")) {
+      setExamSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setIsLoadingSuggestions(true);
+      void apiClient
+        .get<{ data: string[] }>("/onboarding/suggestions", { params: { q: query }, signal: controller.signal })
+        .then((response) => setExamSuggestions(response.data.data))
+        .catch((error: unknown) => {
+          if (!axios.isCancel(error)) setExamSuggestions([]);
+        })
+        .finally(() => setIsLoadingSuggestions(false));
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [setup.examSearch]);
   useEffect(() => {
     let mounted = true;
 
@@ -556,17 +583,47 @@ export const OnboardingPage = () => {
           </div>
           <Card className="space-y-3 p-3 sm:p-4">
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-              <Input
-                value={setup.examSearch}
-                onChange={(event) => setSetup((current) => ({ ...current, examSearch: event.target.value }))}
-                placeholder="Example: NABARD Grade A, UPSC CSE, SSC CGL, CAT, GATE CS"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void discoverExam();
-                  }
-                }}
-              />
+              <div className="relative">
+                <Input
+                  value={setup.examSearch}
+                  onChange={(event) => setSetup((current) => ({ ...current, examSearch: event.target.value }))}
+                  placeholder="Example: UPSC CSE, SSC CGL, CAT, GATE CS"
+                  autoComplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={examSuggestions.length > 0}
+                  aria-controls="exam-suggestions"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void discoverExam();
+                    }
+                  }}
+                />
+                {(examSuggestions.length > 0 || isLoadingSuggestions) && (
+                  <div id="exam-suggestions" role="listbox" className="absolute inset-x-0 top-[calc(100%+0.4rem)] z-30 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-soft">
+                    {isLoadingSuggestions && examSuggestions.length === 0 ? (
+                      <p className="px-3 py-2 text-sm font-semibold text-slate-500">Finding official exam names...</p>
+                    ) : examSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        role="option"
+                        aria-selected={setup.examSearch === suggestion}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-brand/5 hover:text-brand"
+                        onClick={() => {
+                          setSetup((current) => ({ ...current, examSearch: suggestion }));
+                          setExamSuggestions([]);
+                          setErrorMessage("");
+                        }}
+                      >
+                        <Search className="size-4 shrink-0 text-brand" aria-hidden />
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button onClick={() => void discoverExam()} disabled={isDiscovering}>
                 <Search className="size-4" aria-hidden />
                 {isDiscovering ? "Discovering..." : "Discover exam"}

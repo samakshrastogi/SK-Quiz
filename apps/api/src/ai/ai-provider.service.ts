@@ -242,6 +242,14 @@ interface AiProviderInteractionResponse {
   };
 }
 
+interface GeminiGenerateContentResponse {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string };
+  error?: { code?: number; status?: string; message?: string };
+}
 const parseProviderJson = (text: string) => {
   const trimmed = text.trim();
   const withoutFence = trimmed
@@ -273,7 +281,13 @@ const validateProviderKey = () => {
 };
 
 const modelCandidates = () =>
-  Array.from(new Set([env.AI_PROVIDER_MODEL, env.GEMINI_MODEL, "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter(Boolean)));
+  Array.from(
+    new Set(
+      [env.AI_PROVIDER_MODEL, env.GEMINI_MODEL, "gemini-2.5-flash"].filter(
+        (model): model is string => Boolean(model)
+      )
+    )
+  );
 
 const extractInteractionText = (response: AiProviderInteractionResponse) => {
   if (response.output_text?.trim()) {
@@ -306,31 +320,38 @@ export class ContentProviderService {
 
     let lastError: Error | undefined;
 
-    for (const model of modelCandidates()) {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    for (const configuredModel of modelCandidates()) {
+      const model = configuredModel.replace(/^models\//, "");
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
-          model,
-          input: prompt,
-          store: false
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
         }),
-        signal: AbortSignal.timeout(300_000)
+        signal: AbortSignal.timeout(120_000)
       });
 
       const text = await response.text();
-      let payload: AiProviderInteractionResponse | undefined;
+      let payload: GeminiGenerateContentResponse | undefined;
       try {
-        payload = text ? (JSON.parse(text) as AiProviderInteractionResponse) : undefined;
+        payload = text ? (JSON.parse(text) as GeminiGenerateContentResponse) : undefined;
       } catch {
         payload = undefined;
       }
 
       if (response.ok && payload) {
-        return { text: extractInteractionText(payload), model };
+        const output = payload.candidates
+          ?.flatMap((candidate) => candidate.content?.parts ?? [])
+          .map((part) => part.text ?? "")
+          .join("")
+          .trim();
+        if (output) return { text: output, model };
+        lastError = new Error(`Provider returned no text${payload.promptFeedback?.blockReason ? ` (${payload.promptFeedback.blockReason})` : ""}`);
+        continue;
       }
 
       const providerMessage = payload?.error?.message ?? (text || `Provider request failed with status ${response.status}`);
@@ -348,6 +369,32 @@ export class ContentProviderService {
     throw lastError ?? new Error("Provider request failed");
   }
 
+  async suggestExams(query: string) {
+    const normalized = query.trim().replace(/\s+/g, " ");
+    const curated = [
+      "UPSC Civil Services Examination (CSE)", "UPSC Engineering Services Examination (ESE)", "UPSC Combined Defence Services (CDS)",
+      "UPSC NDA and NA Examination", "SSC Combined Graduate Level (CGL)", "SSC Combined Higher Secondary Level (CHSL)",
+      "IBPS Probationary Officer (PO)", "SBI Probationary Officer (PO)", "RBI Grade B", "NABARD Grade A",
+      "JEE Main", "JEE Advanced", "NEET UG", "GATE Computer Science", "CAT", "CLAT"
+    ];
+    const fallback = curated
+      .map((name) => ({ name, score: name.toLowerCase().includes(normalized.toLowerCase()) ? 2 : name.toLowerCase().split(/\W+/).some((word) => normalized.toLowerCase().includes(word)) ? 1 : 0 }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 8)
+      .map((item) => item.name);
+
+    if (normalized.length < 2) return fallback;
+
+    try {
+      const result = await this.generateText(`Suggest up to 8 official competitive exam names matching the user's search: "${normalized}". Expand acronyms and distinguish variants. Return only JSON in this exact shape: {"suggestions":["Official exam name"]}. Do not include commentary.`);
+      const parsed = z.object({ suggestions: z.array(z.string().min(2).max(140)).max(8) }).parse(parseProviderJson(result.text));
+      return Array.from(new Set([...parsed.suggestions.map((name) => name.trim()), ...fallback])).slice(0, 8);
+    } catch (error) {
+      console.warn("Exam suggestions fell back to the curated catalog", error instanceof Error ? error.message : error);
+      return fallback;
+    }
+  }
   async discoverExam(examName: string, userId?: string) {
     const promptTemplate = promptRegistry.examDiscovery;
     const cacheKey = `ai:exam-discovery:${promptTemplate.version}:${examName.toLowerCase()}`;

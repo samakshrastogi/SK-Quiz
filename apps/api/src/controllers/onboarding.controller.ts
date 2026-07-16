@@ -1,11 +1,13 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
 import { isProduction } from "../config/env.js";
+import { ContentProviderService } from "../ai/ai-provider.service.js";
 import { OnboardingStateModel } from "../models/core.model.js";
 import { ExamService } from "../services/exam.service.js";
 import { unauthorized } from "../utils/app-error.js";
 
 const exams = new ExamService();
+const contentProvider = new ContentProviderService();
 const onboardingSessionCookie = "aqc_onboarding_session";
 
 const getOnboardingSessionId = (req: Parameters<RequestHandler>[0], res: Parameters<RequestHandler>[1]) => {
@@ -38,6 +40,19 @@ const hasSavedSetup = (state: unknown) => {
   );
 };
 
+export const suggestExams: RequestHandler = async (req, res, next) => {
+  try {
+    const query = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+    if (query.length < 2 || query.length > 80) {
+      res.status(200).json({ data: [], requestId: req.requestId });
+      return;
+    }
+    const suggestions = await contentProvider.suggestExams(query);
+    res.status(200).json({ data: suggestions, requestId: req.requestId });
+  } catch (error) {
+    next(error);
+  }
+};
 export const discoverExam: RequestHandler = async (req, res, next) => {
   try {
     const result = await exams.discoverExamDetails(req.body.examName, req.user?.id);

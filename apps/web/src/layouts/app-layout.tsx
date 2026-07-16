@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, CalendarClock, Check, ChevronDown, Code2, GraduationCap, MessageSquareText, Sparkles, UserCircle, X } from "lucide-react";
+import { BadgeCheck, BookOpenCheck, CalendarClock, Check, ChevronDown, GraduationCap, MessageSquareText, Sparkles, UserCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { APP_STATE_UPDATED_EVENT, AUTH_EXPIRED_EVENT, apiClient, centralProfileUrl, getCentralSessionState, isApiNetworkCoolingDown, redirectToCentralLogin, requestCentralAppToken } from "../api/client";
@@ -545,13 +545,13 @@ const DeveloperCredit = () => {
   }, [open]);
 
   return (
-    <div ref={creditRef} className="group fixed bottom-24 right-4 z-50 flex items-center gap-2">
-      <div className={`${open ? "pointer-events-auto max-w-[280px] px-3 opacity-100" : "pointer-events-none max-w-0 px-0 opacity-0 group-hover:pointer-events-auto group-hover:max-w-[280px] group-hover:px-3 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:max-w-[280px] group-focus-within:px-3 group-focus-within:opacity-100"} overflow-hidden whitespace-nowrap rounded-md border border-slate-200 bg-white py-2 text-sm font-semibold text-slate-600 shadow-soft transition-all duration-300`}>
+    <div ref={creditRef} className="group fixed bottom-20 right-3 z-50 flex items-center gap-2 sm:bottom-4 sm:right-4">
+      <div className={`${open ? "pointer-events-auto max-w-[280px] px-3 opacity-100" : "pointer-events-none max-w-0 px-0 opacity-0 group-hover:pointer-events-auto group-hover:max-w-[280px] group-hover:px-3 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:max-w-[280px] group-focus-within:px-3 group-focus-within:opacity-100"} overflow-hidden whitespace-nowrap rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300`}>
         Developed by{" "}
         <a className="font-black text-emerald-600 underline decoration-2 underline-offset-4" href="https://www.linkedin.com/in/samaksh-rastogi-9638b9254/" target="_blank" rel="noreferrer">Samaksh Rastogi</a>
       </div>
-      <button type="button" onClick={() => setOpen((current) => !current)} className="flex size-11 items-center justify-center rounded-full bg-ink text-white shadow-soft" aria-label={open ? "Hide developer credit" : "Show developer credit"} aria-expanded={open}>
-        <Code2 className="size-5" aria-hidden />
+      <button type="button" onClick={() => setOpen((current) => !current)} className="flex size-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-cyan-600 shadow-soft" aria-label={open ? "Hide developer credit" : "Show developer credit"} aria-expanded={open}>
+        <BadgeCheck className="size-6" aria-hidden />
       </button>
     </div>
   );

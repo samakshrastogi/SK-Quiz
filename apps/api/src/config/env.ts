@@ -37,7 +37,7 @@ const envSchema = z.object({
   AI_PROVIDER_API_KEY: optionalEnv,
   AI_PROVIDER_MODEL: optionalEnv,
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default("gemini-2.0-flash"),
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   SK_CENTRAL_SERVICE_TOKEN: optionalEnv,
   SK_CENTRAL_AUTH_URL: z.string().url().default("http://localhost:4002/api"),
   SK_CENTRAL_LOGIN_URL: z.string().url().default("http://localhost:5475/login"),
