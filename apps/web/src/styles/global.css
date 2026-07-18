@@ -45,3 +45,21 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+.onboarding-page button.bg-ink:not(:disabled) {
+  background-color: #0e7490;
+}
+
+.onboarding-page button.bg-ink:not(:disabled):hover {
+  background-color: #155e75;
+}
+
+.onboarding-page button.onboarding-next-button:not(:disabled) {
+  background-color: #7c3aed;
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(124, 58, 237, 0.2);
+}
+
+.onboarding-page button.onboarding-next-button:not(:disabled):hover {
+  background-color: #6d28d9;
+}

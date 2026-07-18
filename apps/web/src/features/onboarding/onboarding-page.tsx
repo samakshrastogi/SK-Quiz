@@ -56,6 +56,7 @@ interface SetupState {
   startDate: string;
   dailyHours: number;
   weeklyHours: number;
+  dailyTaskLimit: number;
   quizTime: string;
   plan: StudyTask[];
   completedTopics: string[];
@@ -78,6 +79,7 @@ const defaultState: SetupState = {
   startDate: "",
   dailyHours: 3,
   weeklyHours: 18,
+  dailyTaskLimit: 1,
   quizTime: "19:30",
   plan: [],
   completedTopics: [],
@@ -93,6 +95,7 @@ const normalizeLoadedState = (state: Partial<SetupState>): SetupState => {
     discoveredExams,
     selectedExamIds: safeArray(loaded.selectedExamIds),
     subjectPreferences: safeArray(loaded.subjectPreferences),
+    dailyTaskLimit: Math.min(8, Math.max(1, Number(loaded.dailyTaskLimit) || 1)),
     plan: safeArray(loaded.plan),
     completedTopics: safeArray(loaded.completedTopics),
     visitedSteps: safeArray(loaded.visitedSteps)
@@ -251,15 +254,16 @@ const topicPlanParts = (topic: string) => {
   return ["Concepts", "Examples", "Basic Questions", "PYQs & Mixed Practice", "Revision + Sectional Test"];
 };
 
-const generatePlan = (subjects: SubjectPreference[], dailyHours: number, weeklyHours: number, startDate: string) => {
+const generatePlan = (subjects: SubjectPreference[], dailyHours: number, weeklyHours: number, dailyTaskLimit: number, startDate: string) => {
   const start = startDate || todayIso();
   const ranked = [...subjects].sort((a, b) => {
     const score = { High: 0, Medium: 1, Low: 2 };
     return score[a.priority] - score[b.priority];
   });
   const tasks: StudyTask[] = [];
-  let dayIndex = 0;
+  let taskIndex = 0;
   const normalizedDailyHours = Math.min(Math.max(0.5, dailyHours), Math.max(0.75, weeklyHours / 7));
+  const normalizedTaskLimit = Math.min(8, Math.max(1, Math.floor(dailyTaskLimit)));
 
   ranked.forEach((subject) => {
     subject.topics.forEach((topic) => {
@@ -268,14 +272,14 @@ const generatePlan = (subjects: SubjectPreference[], dailyHours: number, weeklyH
         const isRevision = part.toLowerCase().includes("revision") || part.toLowerCase().includes("mock") || part.toLowerCase().includes("test");
         tasks.push({
           id: `${subject.id}-${topic}-${part}-${tasks.length}`,
-          date: addDays(start, dayIndex),
+          date: addDays(start, Math.floor(taskIndex / normalizedTaskLimit)),
           examName: subject.examName,
           subject: isRevision ? "Revision" : subject.name,
           topic: `${topic} - ${part}`,
           durationHours,
           done: false
         });
-        dayIndex += 1;
+        taskIndex += 1;
       });
     });
   });
@@ -347,6 +351,10 @@ export const OnboardingPage = () => {
   const suggestionBoxRef = useRef<HTMLDivElement>(null);
   const suggestionsDismissedRef = useRef(false);
   const selectedExams = useMemo(() => setup.discoveredExams.filter((exam) => setup.selectedExamIds.includes(examKey(exam))), [setup.discoveredExams, setup.selectedExamIds]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activeStep]);
 
   useEffect(() => {
     const closeSuggestions = (event: PointerEvent) => {
@@ -546,7 +554,7 @@ export const OnboardingPage = () => {
       visitedSteps: [...new Set([...current.visitedSteps, "time", "plan"])] as StepId[],
       plan: mergePlanByExam(
         current.plan,
-        generatePlan(current.subjectPreferences, current.dailyHours, current.weeklyHours, current.startDate || todayIso())
+        generatePlan(current.subjectPreferences, current.dailyHours, current.weeklyHours, current.dailyTaskLimit, current.startDate || todayIso())
       )
     }));
     setIsPlanEditing(false);
@@ -591,7 +599,7 @@ export const OnboardingPage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 pb-20 xl:pb-4">
+    <div className="onboarding-page mx-auto max-w-7xl space-y-4 pb-20 xl:pb-4">
       <section className="rounded-lg bg-ink px-3 py-3 text-white shadow-soft sm:px-5">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -610,7 +618,7 @@ export const OnboardingPage = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+      <div className="flex gap-1.5 sm:gap-2">
         {steps.map((step) => {
           const enabled = isStepEnabled(step.id);
           return (
@@ -618,8 +626,8 @@ export const OnboardingPage = () => {
               key={step.id}
               type="button"
               disabled={!enabled}
-              onClick={() => enabled && setActiveStep(step.id)}
-              className={`flex min-h-10 items-center justify-center gap-1.5 rounded-md border px-1.5 text-xs font-bold transition sm:min-h-12 sm:gap-2 sm:px-3 sm:text-sm ${
+              onClick={() => enabled && unlockAndGo(step.id)}
+              className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-md border px-1.5 text-xs font-bold transition sm:min-h-12 sm:flex-1 sm:gap-2 sm:px-3 sm:text-sm ${activeStep === step.id ? "flex-[2.2]" : "flex-1"} ${
                 activeStep === step.id
                   ? "border-ink bg-ink text-white"
                   : enabled
@@ -628,7 +636,7 @@ export const OnboardingPage = () => {
               }`}
             >
               <step.icon className="size-4" aria-hidden />
-              <span className="truncate">{step.label}</span>
+              <span className={`${activeStep === step.id ? "block" : "hidden"} truncate sm:block`}>{step.label}</span>
             </button>
           );
         })}
@@ -747,11 +755,11 @@ export const OnboardingPage = () => {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="text-2xl font-black">Complete exam guide</h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 break-words text-sm leading-6 text-slate-500">
                 {selectedExamNames ? `Student-friendly guide for ${selectedExamNames}.` : "Discover and select an exam to view the guide."}
               </p>
             </div>
-            <Button className="w-full sm:w-auto" disabled={selectedExams.length === 0} onClick={() => unlockAndGo("subjects")}>
+            <Button className="onboarding-next-button w-full sm:w-auto" disabled={selectedExams.length === 0} onClick={() => unlockAndGo("subjects")}>
               Prioritize syllabus sections
             </Button>
           </div>
@@ -766,6 +774,9 @@ export const OnboardingPage = () => {
               ))}
             </div>
           )}
+          <Button className="onboarding-next-button w-full sm:w-auto" disabled={selectedExams.length === 0} onClick={() => unlockAndGo("subjects")}>
+            Prioritize syllabus sections
+          </Button>
         </div>
       )}
 
@@ -858,6 +869,18 @@ export const OnboardingPage = () => {
               />
             </label>
             <label className="block space-y-2">
+              <span className="text-sm font-bold">Tasks per day</span>
+              <Input
+                type="number"
+                min={1}
+                max={8}
+                step={1}
+                value={setup.dailyTaskLimit}
+                onChange={(event) => setSetup((current) => ({ ...current, dailyTaskLimit: Math.min(8, Math.max(1, Number(event.target.value) || 1)), plan: removeSelectedExamPlan(current.plan, current.subjectPreferences) }))}
+              />
+              <span className="block text-xs font-semibold text-slate-500">Choose between 1 and 8 tasks for each study day.</span>
+            </label>
+            <label className="block space-y-2">
               <span className="text-sm font-bold">Daily quiz scheduling time</span>
               <Input
                 type="time"
@@ -873,7 +896,7 @@ export const OnboardingPage = () => {
           <Card>
             <h4 className="text-lg font-black">Plan logic</h4>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Metric label="Daily load" value="1 task/day" />
+              <Metric label="Daily load" value={`${setup.dailyTaskLimit} ${setup.dailyTaskLimit === 1 ? "task" : "tasks"}/day`} />
               <Metric label="Big topics" value="4-28 days" />
               <Metric label="Revision" value="Built in" />
             </div>
@@ -889,7 +912,7 @@ export const OnboardingPage = () => {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-2xl font-black">Dated task plan</h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 break-words text-sm leading-6 text-slate-500">
                 Starts from today and spreads topics according to your daily and weekly study time.
               </p>
             </div>
@@ -1087,21 +1110,19 @@ const ExamGuide = ({ exam }: { exam: DynamicExam }) => {
                 <GuideMeta label="Negative Marking" value={phase.negativeMarking} wide />
               </div>
               {phase.subjects.length > 0 && (
-                <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
-                  <div className="min-w-[420px]">
-                    <div className="grid grid-cols-[1fr_82px_82px] bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500 sm:grid-cols-[1fr_96px_96px]">
-                      <span>Subject</span>
-                      <span>Marks</span>
-                      <span>Questions</span>
-                    </div>
-                    {phase.subjects.map((subject) => (
-                      <div key={`${phase.title}-${subject.name}`} className="grid grid-cols-[1fr_82px_82px] border-t border-slate-200 px-3 py-2 text-sm sm:grid-cols-[1fr_96px_96px]">
-                        <span className="truncate font-semibold">{subject.name}</span>
-                        <span>{subject.marks || "-"}</span>
-                        <span>{subject.questions || "-"}</span>
-                      </div>
-                    ))}
+                <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
+                  <div className="hidden grid-cols-[minmax(0,1fr)_96px_96px] bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500 sm:grid">
+                    <span>Subject</span>
+                    <span>Marks</span>
+                    <span>Questions</span>
                   </div>
+                  {phase.subjects.map((subject) => (
+                    <div key={`${phase.title}-${subject.name}`} className="grid min-w-0 grid-cols-2 gap-2 border-t border-slate-200 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_96px_96px] sm:gap-0 sm:py-2">
+                      <span className="col-span-2 min-w-0 break-words font-semibold sm:col-span-1">{subject.name}</span>
+                      <span><span className="mr-1 text-xs font-black uppercase text-slate-400 sm:hidden">Marks:</span>{subject.marks || "-"}</span>
+                      <span><span className="mr-1 text-xs font-black uppercase text-slate-400 sm:hidden">Questions:</span>{subject.questions || "-"}</span>
+                    </div>
+                  ))}
                 </div>
               )}
               <GuideBullets items={phase.description} />

@@ -283,7 +283,7 @@ const validateProviderKey = () => {
 const modelCandidates = () =>
   Array.from(
     new Set(
-      [env.AI_PROVIDER_MODEL, env.GEMINI_MODEL, "gemini-2.5-flash"].filter(
+      [env.AI_PROVIDER_MODEL, env.GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter(
         (model): model is string => Boolean(model)
       )
     )
@@ -310,6 +310,20 @@ const extractInteractionText = (response: AiProviderInteractionResponse) => {
 const shouldTryNextModel = (status: number, message: string) =>
   status === 400 || status === 404 || message.toLowerCase().includes("model") || message.toLowerCase().includes("not found");
 
+const isTransientProviderStatus = (status: number) => status === 408 || status === 429 || status >= 500;
+const providerRetryDelay = (attempt: number, retryAfter?: string | null) => {
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.min(30_000, Math.max(1_000, seconds * 1_000));
+    const dateDelay = new Date(retryAfter).getTime() - Date.now();
+    if (Number.isFinite(dateDelay) && dateDelay > 0) return Math.min(30_000, dateDelay);
+  }
+  const exponential = Math.min(8_000, 1_000 * 2 ** (attempt - 1));
+  return exponential + Math.floor(Math.random() * 350);
+};
+const waitForProviderRetry = (attempt: number, retryAfter?: string | null) =>
+  new Promise((resolve) => setTimeout(resolve, providerRetryDelay(attempt, retryAfter)));
+
 export class ContentProviderService {
   private async generateText(prompt: string) {
     validateProviderKey();
@@ -319,50 +333,75 @@ export class ContentProviderService {
     }
 
     let lastError: Error | undefined;
+    const maximumAttempts = 4;
 
     for (const configuredModel of modelCandidates()) {
       const model = configuredModel.replace(/^models\//, "");
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
-        }),
-        signal: AbortSignal.timeout(120_000)
-      });
 
-      const text = await response.text();
-      let payload: GeminiGenerateContentResponse | undefined;
-      try {
-        payload = text ? (JSON.parse(text) as GeminiGenerateContentResponse) : undefined;
-      } catch {
-        payload = undefined;
-      }
+      for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2 }
+            }),
+            signal: AbortSignal.timeout(120_000)
+          });
 
-      if (response.ok && payload) {
-        const output = payload.candidates
-          ?.flatMap((candidate) => candidate.content?.parts ?? [])
-          .map((part) => part.text ?? "")
-          .join("")
-          .trim();
-        if (output) return { text: output, model };
-        lastError = new Error(`Provider returned no text${payload.promptFeedback?.blockReason ? ` (${payload.promptFeedback.blockReason})` : ""}`);
-        continue;
-      }
+          const text = await response.text();
+          let payload: GeminiGenerateContentResponse | undefined;
+          try {
+            payload = text ? (JSON.parse(text) as GeminiGenerateContentResponse) : undefined;
+          } catch {
+            payload = undefined;
+          }
 
-      const providerMessage = payload?.error?.message ?? (text || `Provider request failed with status ${response.status}`);
-      lastError = new Error(`${providerMessage} (model: ${model}, status: ${response.status})`);
+          if (response.ok && payload) {
+            const output = payload.candidates
+              ?.flatMap((candidate) => candidate.content?.parts ?? [])
+              .map((part) => part.text ?? "")
+              .join("")
+              .trim();
+            if (output) return { text: output, model };
+            lastError = new Error(`Provider returned no text${payload.promptFeedback?.blockReason ? ` (${payload.promptFeedback.blockReason})` : ""}`);
+            if (attempt < maximumAttempts) {
+              await waitForProviderRetry(attempt);
+              continue;
+            }
+            break;
+          }
 
-      if (response.status === 401 || response.status === 403) {
-        throw lastError;
-      }
+          const providerMessage = payload?.error?.message ?? (text || `Provider request failed with status ${response.status}`);
+          lastError = new Error(`${providerMessage} (model: ${model}, status: ${response.status}, attempt: ${attempt})`);
 
-      if (!shouldTryNextModel(response.status, providerMessage)) {
-        throw lastError;
+          if (response.status === 401 || response.status === 403) {
+            throw lastError;
+          }
+
+          if (shouldTryNextModel(response.status, providerMessage)) {
+            break;
+          }
+
+          if (isTransientProviderStatus(response.status) && attempt < maximumAttempts) {
+            await waitForProviderRetry(attempt, response.headers.get("retry-after"));
+            continue;
+          }
+
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error("Provider network request failed");
+          const permanentFailure = /API key|401|403|permission/i.test(lastError.message);
+          if (permanentFailure) throw lastError;
+          if (attempt < maximumAttempts) {
+            await waitForProviderRetry(attempt);
+            continue;
+          }
+        }
       }
     }
 

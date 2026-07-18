@@ -1,7 +1,7 @@
 import type { ExamDiscoveryResult, QuizQuestion } from "@ai-quiz-coach/shared";
 import { Link } from "@tanstack/react-router";
 import axios from "axios";
-import { Bookmark, BookOpenCheck, CalendarClock, ChevronLeft, ChevronRight, Clock3, Flag, History, Sparkles } from "lucide-react";
+import { Bookmark, BookOpenCheck, CalendarClock, ChevronLeft, ChevronRight, Clock3, Flag, History, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../api/client";
 import { Button } from "../../components/ui/button";
@@ -592,21 +592,7 @@ export const QuizPage = () => {
                 <CompactInfo label="Date" value={formatDisplayDate(upcomingQuiz.date)} />
                 <div className="rounded-md bg-white/60 px-3 py-2">
                   <p className="text-[11px] font-black uppercase tracking-wide text-cyan-700">Time</p>
-                  {isScheduleEditing ? (
-                    <div className="mt-1">
-                      <input
-                        type="time"
-                        value={draftQuizTime}
-                        onChange={(event) => setDraftQuizTime(event.target.value)}
-                        className="min-h-9 w-full rounded-md border border-cyan-200 bg-white px-2 text-sm font-black text-cyan-950"
-                      />
-                      <p className={`mt-1 text-[11px] font-bold ${isDraftScheduleValid ? "text-cyan-800" : "text-rose-600"}`}>
-                        Earliest: {formatDisplayTime(minSchedule)}
-                      </p>
-                    </div>
-                  ) : (
                   <p className="mt-1 text-base font-black text-cyan-950 sm:text-lg">{formatDisplayTime(setup.quizTime)}</p>
-                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-wide text-cyan-700">Quiz topic</p>
@@ -631,27 +617,13 @@ export const QuizPage = () => {
                 <Sparkles className="size-4" aria-hidden />
                 {isPreparedForCurrentQuiz ? "Start scheduled quiz" : isGenerating ? "Preparing..." : "Prepare & start"}
               </Button>
-              {isScheduleEditing ? (
-                <>
-                  <Button variant="secondary" onClick={() => void saveScheduleTime()} disabled={!isDraftScheduleValid}>
-                    Save time
-                  </Button>
-                  <Button variant="ghost" onClick={() => {
-                    setDraftQuizTime(setup.quizTime);
-                    setIsScheduleEditing(false);
-                    setErrorMessage("");
-                  }}>
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <Button variant="secondary" onClick={() => {
-                  setDraftQuizTime(setup.quizTime);
-                  setIsScheduleEditing(true);
-                }}>
-                  Change schedule time
-                </Button>
-              )}
+              <Button variant="secondary" onClick={() => {
+                setDraftQuizTime(setup.quizTime);
+                setIsScheduleEditing(true);
+                setErrorMessage("");
+              }}>
+                Change schedule time
+              </Button>
             </div>
             {!canGenerateInAdvance && generateAfter && (
               <p className="text-sm font-semibold text-slate-500">Questions will be generated automatically 5 minutes before the scheduled quiz time.</p>
@@ -692,6 +664,45 @@ export const QuizPage = () => {
         </div>
         {selectedHistory && (
           <HistoryReview item={selectedHistory} />
+        )}
+        {isScheduleEditing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/35 px-3 py-4 backdrop-blur-sm" onMouseDown={() => {
+            setDraftQuizTime(setup.quizTime);
+            setIsScheduleEditing(false);
+            setErrorMessage("");
+          }}>
+            <Card className="my-auto w-full max-w-md space-y-4 p-4 sm:p-5" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-brand">Quiz schedule</p>
+                  <h3 className="mt-1 text-xl font-black">Change daily quiz time</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">The updated time applies to your upcoming daily quizzes.</p>
+                </div>
+                <button type="button" aria-label="Close schedule modal" className="flex size-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200" onClick={() => {
+                  setDraftQuizTime(setup.quizTime);
+                  setIsScheduleEditing(false);
+                  setErrorMessage("");
+                }}>
+                  <X className="size-4" aria-hidden />
+                </button>
+              </div>
+              <label className="block space-y-2">
+                <span className="text-sm font-black">New quiz time</span>
+                <input type="time" value={draftQuizTime} onChange={(event) => setDraftQuizTime(event.target.value)} className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base font-black text-ink" />
+              </label>
+              <p className={`rounded-md px-3 py-2 text-xs font-bold ${isDraftScheduleValid ? "bg-cyan-50 text-cyan-900" : "bg-rose-50 text-rose-700"}`}>
+                Earliest allowed today: {formatDisplayTime(minSchedule)}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button onClick={() => void saveScheduleTime()} disabled={!isDraftScheduleValid}>Save schedule</Button>
+                <Button variant="secondary" onClick={() => {
+                  setDraftQuizTime(setup.quizTime);
+                  setIsScheduleEditing(false);
+                  setErrorMessage("");
+                }}>Cancel</Button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
     );

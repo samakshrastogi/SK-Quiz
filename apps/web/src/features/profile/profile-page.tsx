@@ -327,16 +327,16 @@ export const DashboardPage = () => {
       </Card>
       {settingsOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/30 px-4 py-8 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/30 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8"
           onMouseDown={() => setSettingsOpen(false)}
           role="presentation"
         >
-          <Card className="w-full max-w-2xl p-4" onMouseDown={(event) => event.stopPropagation()}>
+          <Card className="my-auto max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-2xl overflow-y-auto p-4" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-brand">Account settings</p>
-                <h2 className="text-xl font-black">{analytics.user.name || "SK Quiz Coach Dashboard"}</h2>
-                <p className="text-sm font-semibold text-slate-500">{analytics.user.email}</p>
+                <h2 className="break-words text-xl font-black">{analytics.user.name || "SK Quiz Coach Dashboard"}</h2>
+                <p className="break-all text-sm font-semibold text-slate-500">{analytics.user.email}</p>
               </div>
             </div>
             <div className="mt-4 rounded-md border border-slate-200 p-3">
@@ -351,12 +351,12 @@ export const DashboardPage = () => {
                   <p className="rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-500">No saved exams yet.</p>
                 ) : (
                   (layoutState.discoveredExams ?? []).map((exam) => (
-                    <div key={examKey(exam)} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
-                      <span className="min-w-0 truncate text-sm font-bold">{exam.examName}</span>
+                    <div key={examKey(exam)} className="grid min-w-0 gap-2 rounded-md border border-slate-200 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <span className="min-w-0 break-words text-sm font-bold">{exam.examName}</span>
                       <Button
                         type="button"
                         variant="secondary"
-                        className="shrink-0 text-rose-700 hover:bg-rose-50"
+                        className="w-full shrink-0 text-rose-700 hover:bg-rose-50 sm:w-auto"
                         onClick={() => void deleteExam(exam)}
                       >
                         <Trash2 className="size-4" aria-hidden />

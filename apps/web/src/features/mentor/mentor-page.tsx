@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Bot, Loader2, MessageSquareText, Plus, SendHorizontal, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Bot, Loader2, Menu, MessageSquareText, Plus, SendHorizontal, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../../api/client";
@@ -62,6 +62,7 @@ export const MentorPage = () => {
   const [messages, setMessages] = useState<Message[]>(() => initialSessions[0]?.messages ?? []);
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -106,12 +107,14 @@ export const MentorPage = () => {
     setMessages([]);
     setInput("");
     setError("");
+    setHistoryOpen(false);
   };
 
   const openChat = (session: ChatSession) => {
     setActiveChatId(session.id);
     setMessages(session.messages);
     setError("");
+    setHistoryOpen(false);
   };
 
   const deleteChat = (sessionId: string) => {
@@ -160,9 +163,9 @@ export const MentorPage = () => {
   const quickPrompts = ["What should I study today?", "Why am I weak in my lowest topic?", "Create a revision plan for this week.", "Explain my next topic simply."];
 
   return (
-    <div className="mx-auto h-[calc(100vh-6rem)] max-w-6xl overflow-hidden pb-20 xl:pb-0">
+    <div className="mx-auto h-[calc(100dvh-9rem)] max-w-6xl overflow-hidden pb-20 lg:h-[calc(100vh-6rem)] xl:pb-0">
       <section className="grid h-full min-h-0 gap-3 lg:grid-cols-[280px_1fr]">
-        <Card className="flex min-h-[13rem] flex-col overflow-hidden p-0 lg:min-h-0">
+        <Card className="hidden min-h-[13rem] flex-col overflow-hidden p-0 lg:flex lg:min-h-0">
           <div className="flex items-center justify-between gap-2 border-b border-slate-200 p-3">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-brand">Mentor history</p>
@@ -192,7 +195,12 @@ export const MentorPage = () => {
                 <h2 className="text-lg font-black lg:text-xl">Mentor Chat</h2>
                 <p className="mt-1 text-xs text-slate-500 lg:text-sm">Answers use your active exam, plan, quiz history, weak topics, and strong topics.</p>
               </div>
-              <Sparkles className="size-5 text-brand" aria-hidden />
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setHistoryOpen(true)} aria-label="Open chat history" className="flex size-9 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 lg:hidden">
+                  <Menu className="size-5" aria-hidden />
+                </button>
+                <Sparkles className="size-5 text-brand" aria-hidden />
+              </div>
             </div>
           </div>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 lg:p-4">
@@ -220,6 +228,38 @@ export const MentorPage = () => {
             </div>
           </div>
         </Card>
+        {historyOpen && (
+          <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-ink/35 backdrop-blur-sm lg:hidden" onMouseDown={() => setHistoryOpen(false)}>
+            <Card className="h-full w-[min(88vw,360px)] overflow-hidden rounded-none p-0" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 p-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-brand">Mentor history</p>
+                  <h2 className="text-lg font-black">Choose a conversation</h2>
+                </div>
+                <button type="button" aria-label="Close chat history" onClick={() => setHistoryOpen(false)} className="flex size-9 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200">
+                  <X className="size-4" aria-hidden />
+                </button>
+              </div>
+              <div className="flex items-center justify-between border-b border-slate-200 p-3">
+                <span className="text-sm font-bold text-slate-500">{chatSessions.length} conversations</span>
+                <Button onClick={startNewChat} className="min-h-9 px-3"><Plus className="size-4" aria-hidden />New chat</Button>
+              </div>
+              <div className="h-[calc(100dvh-8.5rem)] space-y-2 overflow-y-auto p-3">
+                {chatSessions.length === 0 ? (
+                  <div className="rounded-md bg-cyan-50 p-3 text-sm font-bold leading-6 text-cyan-950">Your mentor conversations will appear here after your first message.</div>
+                ) : chatSessions.map((session) => (
+                  <div key={session.id} className={`group flex items-center gap-2 rounded-md border p-2 transition ${session.id === activeChatId ? "border-ink bg-ink text-white" : "border-slate-200 bg-white hover:border-brand/40"}`}>
+                    <button type="button" onClick={() => openChat(session)} className="min-w-0 flex-1 text-left">
+                      <span className="flex items-center gap-2 text-sm font-black"><MessageSquareText className="size-4 shrink-0" aria-hidden /><span className="truncate">{session.title}</span></span>
+                      <span className={`mt-1 block text-[11px] font-bold ${session.id === activeChatId ? "text-white/70" : "text-slate-500"}`}>{new Date(session.updatedAt).toLocaleString()}</span>
+                    </button>
+                    <button type="button" onClick={() => deleteChat(session.id)} className={`rounded p-1 opacity-70 transition hover:opacity-100 ${session.id === activeChatId ? "text-white" : "text-slate-500"}`} aria-label={`Delete ${session.title}`}><Trash2 className="size-4" aria-hidden /></button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
       </section>
     </div>
   );
