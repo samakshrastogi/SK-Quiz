@@ -59,6 +59,7 @@ interface SetupState {
   quizTime: string;
   plan: StudyTask[];
   completedTopics: string[];
+  visitedSteps: StepId[];
 }
 
 const steps: Array<{ id: StepId; label: string; icon: typeof GraduationCap }> = [
@@ -79,7 +80,8 @@ const defaultState: SetupState = {
   weeklyHours: 18,
   quizTime: "19:30",
   plan: [],
-  completedTopics: []
+  completedTopics: [],
+  visitedSteps: ["exam"]
 };
 
 const normalizeLoadedState = (state: Partial<SetupState>): SetupState => {
@@ -92,7 +94,8 @@ const normalizeLoadedState = (state: Partial<SetupState>): SetupState => {
     selectedExamIds: safeArray(loaded.selectedExamIds),
     subjectPreferences: safeArray(loaded.subjectPreferences),
     plan: safeArray(loaded.plan),
-    completedTopics: safeArray(loaded.completedTopics)
+    completedTopics: safeArray(loaded.completedTopics),
+    visitedSteps: safeArray(loaded.visitedSteps)
   };
 };
 
@@ -540,6 +543,7 @@ export const OnboardingPage = () => {
         (current.startDate || todayIso()) === todayIso() && parseLocalDateTime(todayIso(), current.quizTime) < minimumScheduleDateTime()
           ? formatTime(minimumScheduleDateTime())
           : current.quizTime,
+      visitedSteps: [...new Set([...current.visitedSteps, "time", "plan"])] as StepId[],
       plan: mergePlanByExam(
         current.plan,
         generatePlan(current.subjectPreferences, current.dailyHours, current.weeklyHours, current.startDate || todayIso())
@@ -560,6 +564,7 @@ export const OnboardingPage = () => {
   const unlockAndGo = (stepId: StepId) => {
     const nextIndex = stepOrder.indexOf(stepId);
     setUnlockedStepIndex((current) => Math.max(current, nextIndex));
+    setSetup((current) => ({ ...current, visitedSteps: [...new Set([...current.visitedSteps, stepId])] }));
     setActiveStep(stepId);
   };
   const isStepEnabled = (stepId: StepId) => {

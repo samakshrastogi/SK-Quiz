@@ -55,7 +55,9 @@ const displayName = (email?: string | null, name?: string | null) => {
 const summarizeState = (record: LeanOnboardingState) => {
   const state = record.state ?? {};
   const exams = Array.isArray(state["discoveredExams"]) ? (state["discoveredExams"] as Array<{ id?: string; examName: string }>) : [];
-  const activeExamId = typeof state["activeExamId"] === "string" ? state["activeExamId"] : exams[0] ? examKey(exams[0]) : "";
+  const selectedExamIds = Array.isArray(state["selectedExamIds"]) ? (state["selectedExamIds"] as string[]) : [];
+  const selectedExams = exams.filter((exam) => selectedExamIds.includes(examKey(exam)));
+  const activeExamId = typeof state["activeExamId"] === "string" ? state["activeExamId"] : selectedExams[0] ? examKey(selectedExams[0]) : "";
   const activeExam = exams.find((exam) => examKey(exam) === activeExamId) ?? exams[0];
   const plan = Array.isArray(state["plan"]) ? (state["plan"] as Array<{ date?: string; examName?: string; subject?: string; topic?: string; durationHours?: number; done?: boolean }>) : [];
   const quizHistory = Array.isArray(state["quizHistory"]) ? (state["quizHistory"] as Array<{ date?: string; examName?: string; topic?: string; status?: string; accuracy?: number; score?: number; totalQuestions?: number }>) : [];
@@ -64,7 +66,8 @@ const summarizeState = (record: LeanOnboardingState) => {
     userId: record.userId ? String(record.userId) : undefined,
     sessionId: record.sessionId,
     activeExamName: activeExam?.examName ?? "No exam",
-    selectedExamNames: exams.map((exam) => exam.examName),
+    selectedExamNames: selectedExams.map((exam) => exam.examName),
+    visitedSteps: Array.isArray(state["visitedSteps"]) ? state["visitedSteps"].map(String) : [],
     dailyHours: Number(state["dailyHours"] ?? 0),
     weeklyHours: Number(state["weeklyHours"] ?? 0),
     quizTime: typeof state["quizTime"] === "string" ? state["quizTime"] : "",
