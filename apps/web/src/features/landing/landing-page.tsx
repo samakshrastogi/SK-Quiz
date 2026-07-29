@@ -36,9 +36,7 @@ export const LandingPage = () => {
     <div ref={rootRef} className="min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f6fbfd_48%,#eef5f9_100%)] text-ink">
       <div ref={introRef} className="fixed inset-0 z-[80] flex items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f6fbfd_100%)] px-4">
         <div className="w-full max-w-md text-center">
-          <div data-intro-logo className="mx-auto flex size-16 items-center justify-center rounded-xl border border-brand/20 bg-brand/10 text-2xl font-black text-brand shadow-soft">
-            SK
-          </div>
+          <img data-intro-logo src="/sk-logo.png" alt="" className="mx-auto size-16 rounded-full object-cover shadow-soft" />
           <div className="mt-5 flex items-center justify-center gap-2 text-3xl font-black sm:text-4xl">
             <span data-intro-word>Quiz</span>
             <span data-intro-word className="text-brand">Coach</span>
@@ -53,7 +51,7 @@ export const LandingPage = () => {
       <div data-landing-content>
       <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-md border border-brand/20 bg-brand/10 text-sm font-black text-brand shadow-soft">SK</div>
+          <img src="/sk-logo.png" alt="" className="size-10 rounded-full object-cover shadow-soft" />
           <div>
             <p className="text-sm font-black">SK Quiz Coach</p>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand">Adaptive Tutor</p>

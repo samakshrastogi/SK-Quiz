@@ -361,9 +361,7 @@ export const AppLayout = () => {
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <Link to="/profile" className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-ink text-sm font-black text-white shadow-soft">
-              SK
-            </div>
+            <img src="/sk-logo.png" alt="" className="size-10 shrink-0 rounded-full object-cover shadow-soft" />
             <div className="min-w-0">
               <p className="truncate text-base font-black">SK Quiz Coach</p>
               <p className="hidden text-xs font-semibold uppercase tracking-wide text-brand sm:block">Adaptive Tutor</p>
